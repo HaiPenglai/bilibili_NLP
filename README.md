@@ -1,6 +1,4 @@
-
-
-
+当前进度：还在更新
 
 文档：数学公式，手绘图，代码，注释，文字
 手绘板+代码
@@ -44,6 +42,29 @@ print(random_matrix)
 ```
 
 在这个例子中，`torch.rand`函数创建了一个大小为3x3的矩阵，其中的元素是从0到1的均匀分布中随机抽取的。输出的矩阵将包含在[0, 1)范围内的随机数。
+#### 创建正态分布随机初始化的矩阵
+
+当使用 `torch.randn` 函数时，你可以传递一个或多个整数作为参数，用来指定要创建的张量的形状。该函数会返回一个张量，其中的元素是从标准正态分布（均值为0，方差为1）中抽取的随机数。
+
+以下是使用 `torch.randn` 函数的基本用法：
+
+```python
+import torch
+
+# 创建一个形状为 (3, 3) 的张量，其中的元素是从标准正态分布中抽取的随机数
+random_tensor = torch.randn(3, 3)
+print(random_tensor)
+```
+
+这将会输出一个形状为 (3, 3) 的张量，其中的元素是从标准正态分布中抽取的随机数。例如：
+
+```
+tensor([[ 0.2173, -1.1514,  0.8729],
+        [-0.3156,  0.9732, -0.6421],
+        [ 0.0595,  0.1926, -0.7757]])
+```
+
+你也可以传递一个包含整数的元组作为参数，来指定更高维度的张量。例如，`torch.randn(2, 3, 4)` 将会创建一个形状为 (2, 3, 4) 的张量，其中的元素是从标准正态分布中抽取的随机数。
 
 
 
@@ -726,7 +747,6 @@ $$
    $$
    A - iI = \begin{bmatrix} 0 - i & -1 \\ 1 & 0 - i \end{bmatrix} = \begin{bmatrix} -i & -1 \\ 1 & -i \end{bmatrix}
    $$
-   
    
 2. 解方程 $ (A - iI) \mathbf{v} = 0 $ 以找到 $ \mathbf{v} $。
 
@@ -1421,9 +1441,111 @@ print(x.requires_grad)  # 输出: True
 
 在神经网络训练过程中，这些工具和概念都非常重要，因为它们使得反向传播和梯度下降成为可能。通过使用这些工具，开发者能够有效地实现网络的自动更新和优化。
 
+### torch.nn--neural networks
+
+下面是对PyTorch中`torch.nn`下面几个函数的用法的简单示例：
+
+```python
+import torch
+import torch.nn as nn
+
+# 定义输入数据
+input_data = torch.randn(2, 4)  # 2个样本，4个特征
+print('Input Data:', input_data)
+'''tensor([[-0.0651,  0.1765, -0.5925, -0.6215],
+        [-0.4160,  0.4052,  0.6214,  0.0385]])'''
+
+# nn.Linear: 全连接层/线性层
+linear_layer = nn.Linear(4, 3)  # 输入特征维度为4，输出特征维度为3
+print('Linear Layer:',linear_layer.weight.data, linear_layer.bias.data)
+'''tensor([[-0.3712,  0.1380,  0.1242, -0.1603],
+        [-0.0283,  0.3212, -0.4816,  0.2166],
+        [-0.1501, -0.2759,  0.1762, -0.0754]])'''
+'''tensor([-0.2100, -0.4055, -0.2082])'''
+
+output = linear_layer(input_data)
+print("Linear Layer Output:")
+print(output)
+print(input_data@linear_layer.weight.t()+linear_layer.bias)
+print()
+'''tensor([[-0.1355, -0.1963, -0.3046],
+        [ 0.0712, -0.5546, -0.1509]], grad_fn=<AddmmBackward0>)'''
+'''tensor([[-0.1355, -0.1963, -0.3046],
+        [ 0.0712, -0.5546, -0.1509]], grad_fn=<AddBackward0>)'''
+```
+
+#### 意义是什么?
+
+为了更好理解这一个过程，我们把数字简化一点：
+
+```python
+import torch
+
+# 创建输入数据矩阵 input_data
+input_data = torch.tensor([[1, 2, 3, 1],
+                           [0, 1, 2, 0]])  # 两行四列的矩阵
+
+# 创建权重矩阵 weight
+weight = torch.tensor([[1, 0, 1, 2],
+                       [2, 1, 1, 0],
+                       [0, 2, 2, 1]])  # 三行四列的矩阵
+
+# 创建偏置项向量 bias
+bias = torch.tensor([1, 2, 3])  # 三个数字的向量
+
+# 计算输出数据 output_data
+output_data = input_data @ weight.t() + bias
+'''在 PyTorch 中，如果两个张量的形状不匹配，会进行自动广播（broadcasting）操作，使得它们的形状变得相同，然后进行相应的元素相加操作。
+
+具体来说，在执行 input_data @ weight.t() + bias 操作时，PyTorch 会将 bias 向量沿着第一个维度（行）进行复制扩展，使其形状与 input_data 的形状匹配。然后，对应位置的元素进行相加。'''
+
+print("Output Data:")
+print(output_data)
+
+'''tensor([[ 7,  9, 14],
+        [ 3,  5,  9]])'''
+```
+
+**本质：**
+![image-20240208133706466](C:\Users\86157\AppData\Roaming\Typora\typora-user-images\image-20240208133706466.png)
+
+- **神经元**: 上述神经网络有4个输入神经元，3个输出神经元。
+- **偏置项**: 这三个输出神经元的旁边有着3个偏置，对应偏置向量的三个元素。
+- **（线性层）连接权重**: 对于每一个输出神经元都有4个输入神经元与它相连，对应着weight矩阵的一行，总共有12条边对应着weight矩阵的12个元素。
+- **样本和特征**: Input矩阵的每一行代表着一个样本，一行当中的4个元素代表着一个样本的4个特征（比如说一只人的身高，体重，胸围，肺活量）。
+- **矩阵运算和输入输出**: 当第一行进行矩阵运算的时候，代表着有4个数据输入了输入神经元，算出来3个输出，代表了有3个数据从输出神经元输出。
+
+#### 收获：
+
+现在我们应该能够比较好的理解神经网络中的**线性层**的概念了。
+
+首先，我们需要提供数据。这个**数据通常是一个矩阵，矩阵的行数代表着我们采集了多少个样本，而矩阵的列数则代表着每个样本有多少特征**。(举个例子，如果我们采集了2个人的身高、体重、肺活量和胸围的数据，就可以对应着一个2行4列的矩阵。)
+
+```python
+input_data = torch.randn(2, 4)  # 2个样本，4个特征
+```
+
+接着，我们要构建一个全连接层，可以通过`nn.Linear`来构建，**我们有4个输入特征，而假设我们想要3个输出特征**(例如，在分类任务中，通常将输出层的特征数量设置为类别的数量)，**那么这个线性层的参数就应该是一个 4x3 的矩阵**。
+
+```py
+linear_layer = nn.Linear(4, 3) 
+```
+
+通过线性层（linear layer），我们可以将**数据(一个矩阵，每行代表一个样本)**传入神经网络，并得到一个**输出(也是一个矩阵，每行代表对应样本的映射)**。
+```py
+output = linear_layer(input_data)
+```
+
+在神经网络进行了这个变换之后，对于每一个样本，都会有一个对应输出。
+
+
+
+
+这个示例演示了如何使用 `nn.Linear`、`nn.Conv2d`、`nn.MaxPool2d`、`nn.ReLU`、`nn.Sigmoid` 和 `nn.Softmax` 函数。每个函数都是PyTorch中的一个模块，用于构建神经网络模型的不同层。
+
 ### pytorch构建神经网络：线性回归
 
-![image-20240206234600362](C:\Users\86157\AppData\Roaming\Typora\typora-user-images\image-20240206234600362.png)
+![image-20240207175356280](C:\Users\86157\AppData\Roaming\Typora\typora-user-images\image-20240207175356280.png)
 
 线性回归是一种预测连续值的监督学习算法，多变量线性回归意味着模型的输入包含多个特征（变量）。以下是一步一步创建和训练一个简单的多变量线性回归模型的过程：
 
@@ -1442,12 +1564,24 @@ true_bias = torch.tensor([5.0])
 
 # 创建一些合成数据
 x_data = torch.randn(100, 2)  # 100个样本，每个样本2个特征
+print('x_data',x_data)
 y_data = x_data @ true_weights + true_bias  # @表示矩阵乘法
+print(y_data)
+
+# 在y_data中添加一些随机数
+random_noise = torch.randn(y_data.shape)   # 添加正态分布的随机数
+y_data += random_noise
 ```
+
+在模拟线性回归数据时添加随机噪声是为了模拟真实世界数据中的不确定性和测量误差。在现实世界的数据中，很少有情况是完全线性的或完全无误差的。
+即使添加了噪声，只要噪声不是系统性的偏差，并且模型是正确指定的（即，模型形式能够捕捉数据的真实关系），线性回归模型通常仍然能够估计出接近真实的权重和偏置参数，展示出其对数据生成过程的良好拟合。
+![image-20240208120524170](C:\Users\86157\AppData\Roaming\Typora\typora-user-images\image-20240208120524170.png)
 
 #### 步骤 2: 定义模型
 
 我们将使用 PyTorch 的 `nn.Module` 类来定义我们的模型。对于线性回归，我们可以使用 PyTorch 提供的 `nn.Linear` 层。
+在 PyTorch 中，`LinearRegressionModel` 是您自定义的类的名字，并不是系统库的。您可以根据您的需求给这个类命名，但最好选择一个描述性的名称，以便清楚地表明类的功能。
+当您定义一个类并在括号里写 `nn.Module` 时，您的类 `LinearRegressionModel` 成为 `nn.Module` 的子类。这意味着您的类继承了 `nn.Module` 的所有功能，包括参数管理、钩子函数、训练/评估模式切换等。
 
 ```python
 class LinearRegressionModel(nn.Module):
@@ -1463,6 +1597,9 @@ class LinearRegressionModel(nn.Module):
 # 实例化模型
 model = LinearRegressionModel(input_size=2)
 ```
+
+当您在模型上调用 `model(x)` 时，PyTorch 会自动调用 `forward` 方法。这是实现自定义模块时必须遵循的 PyTorch 框架的约定。
+`LinearRegressionModel` 类继承自 `nn.Module`，并且重写了 `forward()` 方法。这意味着在创建 `LinearRegressionModel` 对象时，可以调用 `forward()` 方法来执行模型的前向传播，从而计算模型的输出。
 
 #### 步骤 3: 定义损失函数和优化器
 
