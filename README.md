@@ -555,6 +555,53 @@ print(reshaped_matrix)
    print(c)
    ```
 
+#### PyTorch的广播机制
+
+PyTorch的广播机制允许在不同维度之间进行运算，使得在形状不完全匹配的张量上执行逐元素操作成为可能。广播操作包括两个步骤：扩展（Broadcasting）和逐元素操作（Element-wise operation）。下面通过一个具体的例子来详细说明PyTorch中的广播机制：
+
+```python
+import torch
+
+# 创建两个张量
+tensor1 = torch.tensor([[1, 2, 3],
+                        [4, 5, 6]])  # 形状为 (2, 3)
+tensor2 = torch.tensor([10, 20, 30])    # 形状为 (3)
+
+# 执行加法操作
+result = tensor1 + tensor2
+
+print("Tensor 1:")
+print(tensor1)
+print("\nTensor 2:")
+print(tensor2)
+print("\nResult after broadcasting:")
+print(result)
+```
+
+在这个例子中，我们有一个形状为(2, 3)的二维张量`tensor1`和一个形状为(3,)的一维张量`tensor2`。在加法操作中，`tensor2`的维度被扩展以匹配`tensor1`的形状，然后对应位置的元素进行加法操作。这就是广播机制的工作原理。
+
+具体来说，PyTorch首先将`tensor2`的形状扩展为(2, 3)，使其与`tensor1`的形状匹配。然后，对应位置的元素进行加法操作：
+
+```
+tensor1:
+[[1, 2, 3],
+ [4, 5, 6]]
+
+tensor2 (broadcasted to [[10, 20, 30],
+                         [10, 20, 30]]):
+
+[[10, 20, 30],
+ [10, 20, 30]]
+
+Result after broadcasting:
+
+[[11, 22, 33],
+ [14, 25, 36]]
+```
+
+通过广播机制，我们可以在形状不完全匹配的张量上执行逐元素操作，使得代码更加简洁和高效。
+**之所以张量可以和标量进行运算，本质上是一种特殊的广播机制，即：将标量复制成张量。**
+
 #### 高级运算
 
 1. **乘方**：
@@ -659,6 +706,66 @@ PyTorch 提供的张量运算不仅限于基本的算术运算，还包括更多
 
 在 PyTorch 中，`torch.std()` 和 `torch.var()` 默认计算的是样本标准差和样本方差，而不是总体标准差和总体方差。样本标准差和样本方差在计算时使用的是 Bessel's correction（贝塞尔校正），即分母使用 `n-1` 而不是 `n`.
 ![image-20240206102905942](C:\Users\86157\AppData\Roaming\Typora\typora-user-images\image-20240206102905942.png)
+
+#### 在指定维度进行统计(求softmax的时候很有用)
+
+当我们在PyTorch中使用`torch.sum()`函数时，通过指定`dim`参数可以沿着指定的维度对张量进行求和。下面是一个具体的示例，说明如何沿着某个维度对张量进行求和：
+
+```python
+import torch
+
+# 创建一个3维张量
+tensor = torch.tensor([
+    [[1, 2, 3],
+     [4, 5, 6]],
+    
+    [[7, 8, 9],
+     [10, 11, 12]]
+])
+
+# 沿着第一个维度（索引为0的维度）求和
+sum_along_dim0 = torch.sum(tensor, dim=0)
+print("Sum along dim 0:")
+print(sum_along_dim0)
+print()
+'''tensor([[ 8, 10, 12],
+        [14, 16, 18]])'''
+
+# 沿着第二个维度（索引为1的维度）求和
+sum_along_dim1 = torch.sum(tensor, dim=1)
+print("Sum along dim 1:")
+print(sum_along_dim1)
+print()
+'''tensor([[ 5,  7,  9],
+        [17, 19, 21]])'''
+
+# 沿着第三个维度（索引为2的维度）求和
+sum_along_dim2 = torch.sum(tensor, dim=2)
+print("Sum along dim 2:")
+print(sum_along_dim2)
+'''tensor([[ 6, 15],
+        [24, 33]])'''
+```
+
+![image-20240209150036185](C:\Users\86157\AppData\Roaming\Typora\typora-user-images\image-20240209150036185.png)
+这段代码创建了一个形状为(2, 2, 3)的3维张量，并对其进行了沿着不同维度的求和操作。`torch.sum()`函数的`dim`参数指定了要进行求和的维度，保持维度的方式通过`keepdim=True`来设置。在这个例子中，我们对不同的维度进行了求和，分别沿着第一个、第二个和第三个维度进行了求和。
+
+**额外参数keepdim=True**
+`keepdim=True`时，结果张量将保持与原始张量相同的维度数，只是在指定的维度上长度为1。这样做的好处是可以保持结果张量与原始张量的形状一致，方便后续的广播或其他操作。
+
+```python
+# 沿着第二个维度（索引为1的维度）求和
+sum_along_dim1 = torch.sum(tensor, dim=1,keepdim=True)
+print("Sum along dim 1:")
+print(sum_along_dim1)
+print()
+
+Sum along dim 1:
+tensor([[[ 5,  7,  9]],
+        [[17, 19, 21]]])
+```
+
+
 
 #### 形状和布局变换
 
@@ -1834,6 +1941,8 @@ print(manual_conv_output)
 
 #### 池化层
 
+先介绍**最大池化**
+
 ```python
 import torch
 import torch.nn as nn
@@ -1961,6 +2070,375 @@ output[i, j, k, l] = torch.max(window)
   ![image-20240208232802212](C:\Users\86157\AppData\Roaming\Typora\typora-user-images\image-20240208232802212.png)
 
 手写的池化操作结果和nn.MaxPool2d的结果完全相同，是正确的。
+**其他说明：**（如果不熟悉cnn）
+
+1. **图像样本数量的保持**：无论是卷积还是池化操作，输入图像的批次大小（即样本数量）通常与输出图像的批次大小相同。这意味着，如果您输入了 N 张图像（无论是单张图像还是一个包含 N 张图像的批次），您将得到 N 张经过操作的图像。这种设计确保了网络可以同时处理多个图像样本，而且每张输入图像都会对应一张输出图像。
+
+2. **通道数的变化与保持**：
+   - 对于**卷积操作**，输入和输出的通道数可以不同。输出通道数由卷积层的配置（特别是卷积核的数量）决定。例如，如果一个卷积层有 64 个卷积核，那么无论输入图像的通道数是多少，输出的通道数将是 64。
+   - 对于**池化操作**，输入和输出的通道数是相同的。池化操作是在每个通道上独立进行的，不会改变通道数。这意味着，如果输入图像有 C 个通道，那么经过池化后的输出图像也将有 C 个通道。
+
+#### 平均池化
+
+和最大池化只是变了名字，从max变成avg(mean),不赘述。
+
+```python
+import torch
+import torch.nn as nn
+import torch.nn.functional as F
+
+conv_output = torch.tensor([[[[ 0.5914, -0.8443,  0.3207,  0.3029],
+          [ 0.6956, -0.2633, -0.2755,  0.0091],
+          [ 1.0091,  0.0539, -0.4332,  0.3565],
+          [-0.0718, -0.2377,  0.0800,  0.7624]],
+
+         [[-0.2488, -0.2749, -1.1166, -0.2491],
+          [ 0.5504,  0.3816,  0.2963,  0.2610],
+          [-0.0412, -0.0039, -0.4768, -0.0611],
+          [ 0.7517,  0.1665, -0.2231, -0.3370]]],
+
+
+        [[[-0.2135,  0.4644, -0.2044,  0.5666],
+          [-0.0925, -0.2376, -0.2448,  0.6950],
+          [-0.0976,  0.7593, -1.6869,  1.1621],
+          [ 0.2258,  0.2534, -0.2848, -0.0522]],
+
+         [[-0.0054, -0.7709,  0.0086, -0.3171],
+          [ 0.6791,  0.1246, -0.1360,  0.1951],
+          [ 0.0818, -0.3583, -0.7911, -1.8213],
+          [-0.1488,  0.4026, -0.3277,  0.3289]]]])
+'''之前卷积层输出的结果，有两张图片，每张图片有两个通道，每个通道是4x4的矩阵'''
+
+# nn.AvgPool2d: 2D 平均池化层
+avgpool_layer = nn.AvgPool2d(kernel_size=2, stride=2)
+'''AvgPool2d层是用来执行平均池化操作的，它只是对输入数据进行池化操作，而不涉及任何可学习的参数。因此，在使用AvgPool2d层时，不应该期望像卷积层或线性层那样可以访问权重和偏置。'''
+
+# 池化核大小为2x2，步长为2
+output = avgpool_layer(conv_output)
+print("AvgPooling Layer Output:")
+print(output.size())
+print(output)
+
+
+def manual_avgpool2d(input_tensor, kernel_size=2, stride=2):
+    # 提取输入特征图的维度
+    batch_size, channels, in_height, in_width = input_tensor.shape
+
+    # 计算输出特征图的维度
+    out_height = (in_height - kernel_size) // stride + 1
+    out_width = (in_width - kernel_size) // stride + 1
+
+    # 初始化输出特征图
+    output = torch.zeros((batch_size, channels, out_height, out_width))
+
+    # 执行平均池化操作
+    for i in range(batch_size):
+        for j in range(channels):
+            for k in range(out_height):
+                for l in range(out_width):
+                    h_start = k * stride
+                    h_end = h_start + kernel_size
+                    w_start = l * stride
+                    w_end = w_start + kernel_size
+
+                    # 在当前池化窗口中提取平均值
+                    window = input_tensor[i, j, h_start:h_end, w_start:w_end]
+                    output[i, j, k, l] = torch.mean(window)
+
+    return output
+
+# 测试手动实现的平均池化
+manual_avgpool_output = manual_avgpool2d(conv_output, kernel_size=2, stride=2)
+
+# 打印结果
+print("Manual AvgPooling Output:")
+print(manual_avgpool_output.size())
+print(manual_avgpool_output)
+
+```
+
+#### 非线性层
+
+#### ReLU
+
+**ReLU（Rectified Linear Unit）**：对于输入张量中的每个元素，如果元素大于0，则保持不变；如果元素小于等于0，则将其置为0。
+$$  \text{ReLU}(x) = \max(0, x) $$
+
+```python
+import torch
+import torch.nn as nn
+
+input=torch.randn(2,3,3)
+print("Input:",input)
+
+relu_layer = nn.ReLU()
+output = relu_layer(input)
+print("ReLU Activation Output:")
+print(output)
+
+```
+
+**手写ReLU:**
+
+```python
+# 手动实现ReLU激活函数
+def custom_relu(input_tensor):
+    # 大于0的元素保持不变，小于0的元素置为0
+    return input_tensor * (input_tensor > 0).float()
+
+# 调用手动实现的ReLU激活函数
+output_custom = custom_relu(input_tensor)
+print("Custom ReLU Activation Output:")
+print(output_custom)
+```
+
+注：
+
+```python
+input_tensor = torch.tensor([[1, -2, 3], [0, 4, -5]])
+print(input_tensor>0)
+'''tensor([[ True, False,  True],
+        [False,  True, False]]'''
+```
+
+#### Sigmoid
+
+**Sigmoid**：对于输入张量中的每个元素，通过Sigmoid函数将元素映射到范围[0, 1]之间，常用于二分类问题的输出层。
+$$\sigma(x) = \frac{1}{1 + e^{-x}} $$。
+
+```python
+import torch
+import torch.nn as nn
+
+input=torch.randn(2,2)
+print("Input:",input)
+print(input)
+
+sigmoid_layer = nn.Sigmoid()
+output = sigmoid_layer(input)
+print("Sigmoid Activation Output:")
+print(output)
+```
+
+**手写sigmoid**
+
+```python
+# 手动实现Sigmoid激活函数
+def custom_sigmoid(input_tensor):
+    return 1 / (1 + torch.exp(-input_tensor))
+
+# 调用手动实现的Sigmoid激活函数
+output_custom = custom_sigmoid(input)
+print("Custom Sigmoid Activation Output:")
+print(output_custom)
+```
+
+注:对一个矩阵进行Sigmoid激活函数操作时，PyTorch会自动对矩阵中的每个元素进行Sigmoid函数的计算，而不需要显式地编写循环来逐个处理每个元素。
+```python
+input_tensor = torch.tensor([[-100,0], [1,2]])
+print(torch.exp(input_tensor))
+'''tensor([[3.7835e-44, 1.0000e+00],
+        [2.7183e+00, 7.3891e+00]])'''
+```
+
+#### Softmax
+
+**Softmax**：对于输入张量中的每个元素，通过Softmax函数将元素映射到一个概率分布，常用于多分类问题的输出层。
+$ \text{Softmax}(x)_i = \frac{e^{x_i}}{\sum_j e^{x_j}} $。
+
+```python
+import torch
+import torch.nn as nn
+
+input=torch.tensor([[-1,0,1],[0,1,2]]).float()#用整数可能报错，应该用浮点数
+
+softmax_layer = nn.Softmax(dim=1)
+# dim=1表示在第二个维度上进行Softmax计算，通常是在多分类问题的输出层使用
+output = softmax_layer(input)
+print("Softmax Activation Output:")
+print(output)
+'''tensor([[0.0900, 0.2447, 0.6652],
+        [0.0900, 0.2447, 0.6652]])'''
+print(nn.Softmax(dim=0)(input))
+'''tensor([[0.2689, 0.2689, 0.2689],
+        [0.7311, 0.7311, 0.7311]])'''
+```
+
+**手写softmax**
+
+```python
+def custom_softmax(input_tensor, dim=1):
+    # 计算指数
+    exp_input = torch.exp(input_tensor)
+    # 沿着指定维度求和
+    sum_exp = torch.sum(exp_input, dim=dim, keepdim=True)
+    # 进行softmax计算
+    softmax_output = exp_input / sum_exp
+    return softmax_output
+
+# 测试自定义softmax函数
+output_custom = custom_softmax(input, dim=1)
+print("Custom Softmax Output:")
+print(output_custom)
+
+output_custom = custom_softmax(input, dim=0)
+print("Custom Softmax Output:")
+print(output_custom)
+```
+
+![image-20240209161903308](C:\Users\86157\AppData\Roaming\Typora\typora-user-images\image-20240209161903308.png)
+
+1. **torch.exp(input_tensor)**：PyTorch会自动将`exp()`函数应用于张量中的每个元素，而不需要手动编写循环。这就是PyTorch广播机制的一种应用。
+
+2. **torch.sum(exp_input, dim=dim, keepdim=True)**：在这一步中，`torch.sum()`函数沿着指定的维度`dim`对`exp_input`张量进行求和。`keepdim=True`参数保持结果张量的维度，使得结果张量与原始张量具有相同的维度数，只是在指定维度上长度为1。
+
+3. **exp_input / sum_exp**：在这一步中，`exp_input`张量被除以`sum_exp`张量。由于`sum_exp`的形状被扩展以匹配`exp_input`，所以这是一个逐元素的除法操作，其结果是一个形状与`exp_input`相同的张量。PyTorch的广播机制使得在不同形状的张量之间执行逐元素操作变得非常简单，而无需手动编写循环来处理不同形状的张量。
+
+#### Tanh
+
+**Tanh（Hyperbolic Tangent）**：对于输入张量中的每个元素，通过Tanh函数将元素映射到范围[-1, 1]之间。
+ $$\tanh(x) = \frac{e^x - e^{-x}}{e^x + e^{-x}} $$。
+
+```python
+import torch
+import torch.nn as nn
+
+input=torch.randn(2,3,3)
+print("Input:",input)
+
+tanh_layer = nn.Tanh()
+output = tanh_layer(input)
+print("Tanh Activation Output:")
+print(output)
+```
+
+**手写Tanh**
+
+```python
+def custom_tanh(input_tensor):
+    # 计算tanh函数
+    tanh_output = (torch.exp(input_tensor) - torch.exp(-input_tensor)) / (torch.exp(input_tensor) + torch.exp(-input_tensor))
+    return tanh_output
+
+# 测试自定义tanh函数
+output_custom = custom_tanh(input)
+print("Custom Tanh Output:")
+print(output_custom)
+```
+
+很简单，逐元素进行即可
+
+
+#### Leaky ReLU
+
+**Leaky ReLU**：与ReLU类似，但当输入为负数时，Leaky ReLU不会将其完全置为0，而是乘以一个小的斜率，以避免“神经元死亡”问题。
+$
+\text{ELU}(x) = 
+\begin{cases} 
+x & \text{if } x \geq 0 \\
+\alpha(e^x - 1) & \text{if } x < 0 
+\end{cases}
+$
+
+```python
+import torch
+import torch.nn as nn
+
+input=torch.randn(2,3,3)
+print("Input:",input)
+
+
+leaky_relu_layer = nn.LeakyReLU(negative_slope=0.01)  # 可以自定义负斜率，通常为小于1的正数
+output = leaky_relu_layer(input)
+print("Leaky ReLU Activation Output:")
+print(output)
+```
+
+**手写Leaky ReLU**
+
+```python
+def custom_leaky_relu(input_tensor, negative_slope=0.01):
+    # 对于每个元素，如果大于等于0，保持不变；如果小于0，乘以负斜率
+    leaky_relu_output = torch.where(input_tensor >= 0, input_tensor, input_tensor * negative_slope)
+    return leaky_relu_output
+
+# 测试自定义Leaky ReLU函数
+output_custom = custom_leaky_relu(input)
+print("Custom Leaky ReLU Output:")
+print(output_custom)
+
+```
+
+注:
+
+`torch.where()` 函数是 PyTorch 中的一个张量操作函数，用于根据条件选择两个张量中的元素。它的用法如下：
+
+```python
+torch.where(condition, x, y)
+```
+
+其中，`condition` 是一个布尔类型的张量，用于指定选择的条件。如果 `condition` 中的元素为 `True`，则选择 `x` 中对应位置的元素；如果 `condition` 中的元素为 `False`，则选择 `y` 中对应位置的元素。
+
+举个简单的例子：
+
+```python
+import torch
+
+x = torch.tensor([1, 2, 3])
+y = torch.tensor([4, 5, 6])
+condition = torch.tensor([True, False, True])
+
+result = torch.where(condition, x, y)
+print(result)  # 输出: tensor([1, 5, 3])
+```
+
+在这个例子中，`condition` 为 `[True, False, True]`，所以在对应位置上选择了 `x` 中的元素 `[1, , 3]`，y中的元素`[,5,]`。
+
+#### ELU
+
+**ELU（Exponential Linear Unit）**：对于输入张量中的每个元素，如果元素大于0，则保持不变；如果元素小于等于0，则通过指数函数进行平滑处理。
+$
+\text{ELU}(x) = 
+\begin{cases} 
+x & \text{if } x \geq 0 \\
+\alpha(e^x - 1) & \text{if } x < 0 
+\end{cases}
+$
+
+```python
+import torch
+import torch.nn as nn
+
+input=torch.randn(2,3,3)
+print("Input:",input)
+
+elu_layer = nn.ELU(alpha=1.0)  # 可以自定义alpha参数，通常为1.0
+output = elu_layer(input)
+print("ELU Activation Output:")
+print(output)
+
+```
+
+**手写ELU**
+
+```python
+def custom_elu(input_tensor, alpha=1.0):
+    return torch.where(input_tensor >= 0, input_tensor, alpha * (torch.exp(input_tensor) - 1))
+
+# 测试自定义 ELU 函数
+output_custom = custom_elu(input)
+print("Custom ELU Output:")
+print(output_custom)
+
+```
+
+代码是类似的：构建三个矩阵，第一个矩阵是x，第二个是$\alpha(e^x - 1)$,第三个是`x>0`与否，根据`x>0`选择元素。
+
+```python
+print(input>=0)#之前说过，这是一个bool型张量
+```
+
+这些激活函数在深度学习中经常被使用，并且在PyTorch中都有相应的实现。通过在神经网络中选择合适的激活函数，可以提高模型的表达能力和性能。
 
 ### pytorch构建神经网络：线性回归
 
