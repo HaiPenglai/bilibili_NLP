@@ -2442,11 +2442,11 @@ print(input>=0)#之前说过，这是一个bool型张量
 
 ### pytorch构建神经网络：线性回归
 
-![image-20240207175356280](C:\Users\86157\AppData\Roaming\Typora\typora-user-images\image-20240207175356280.png)
+![image-20240211180135422](C:\Users\86157\AppData\Roaming\Typora\typora-user-images\image-20240211180135422.png)
 
 线性回归是一种预测连续值的监督学习算法，多变量线性回归意味着模型的输入包含多个特征（变量）。以下是一步一步创建和训练一个简单的多变量线性回归模型的过程：
 
-#### 步骤 1: 准备数据
+#### 准备数据
 
 首先，我们需要创建一些合成数据来模拟我们的问题。假设我们有一个模型，它根据两个特征（x1 和 x2）来预测目标值 y。
 
@@ -2474,11 +2474,352 @@ y_data += random_noise
 即使添加了噪声，只要噪声不是系统性的偏差，并且模型是正确指定的（即，模型形式能够捕捉数据的真实关系），线性回归模型通常仍然能够估计出接近真实的权重和偏置参数，展示出其对数据生成过程的良好拟合。
 ![image-20240208120524170](C:\Users\86157\AppData\Roaming\Typora\typora-user-images\image-20240208120524170.png)
 
+**我们的任务:已知x_data、y_data，求weight和bias**
+
+#### 手动实现梯度下降
+
+要使用手动梯度下降的方法进行线性回归，我们需要遵循以下步骤：
+
+1. **初始化权重和偏置**：从一些随机值开始。
+2. **选择损失函数**：通常用于线性回归的是均方误差（MSE）。
+3. **设置学习率**：这是梯度下降中的一个重要超参数。
+4. 迭代更新权重
+   ![image-20240211115526202](C:\Users\86157\AppData\Roaming\Typora\typora-user-images\image-20240211115526202.png)
+   - 计算预测值 `y_pred`。
+   - 计算损失 `loss`。
+   - 计算损失对权重和偏置的梯度。
+   - 更新权重和偏置。
+
+```python
+# 初始化权重和偏置
+weights = torch.randn(2, requires_grad=True)
+bias = torch.randn(1, requires_grad=True)
+
+# 设置学习率
+learning_rate = 0.01
+
+# 迭代次数
+iterations = 1000
+
+# 损失函数 - 均方误差 - Mean Squared Error Loss
+def mse_loss(y_pred, y_true):
+    return ((y_pred - y_true) ** 2).mean()
+
+# 执行梯度下降
+for _ in range(iterations):
+    # 计算预测值
+    y_pred = x_data @ weights + bias
+
+    # 计算损失
+    loss = mse_loss(y_pred, y_data)
+
+    # 计算梯度
+    loss.backward()
+
+    # 更新权重和偏置，使用 torch.no_grad() 来暂停梯度追踪
+    with torch.no_grad():
+        weights -= learning_rate * weights.grad
+        bias -= learning_rate * bias.grad
+
+        # 清零梯度,否则梯度默认会叠加
+        weights.grad.zero_()
+        bias.grad.zero_()
+
+# 打印结果
+print(f"Estimated weights: {weights}")
+print(f"Estimated bias: {bias}")
+'''Estimated weights: tensor([ 1.9858, -3.5081], requires_grad=True)
+Estimated bias: tensor([5.1391], requires_grad=True)'''
+```
+
+![image-20240211113845216](C:\Users\86157\AppData\Roaming\Typora\typora-user-images\image-20240211113845216.png)
+
+当然，我可以用数学符号来解释这两个公式：
+
+1. **预测值的计算公式**：
+
+   假设我们有一个线性模型，其预测值$\hat{y} $ 是由输入数据$X $、权重$w $ 和偏置$b $ 通过线性关系计算得出的。数学上，这可以表示为：
+
+   $$\hat{y} = Xw + b $$
+
+   其中，
+   - $ \hat{y} $ 是预测值。
+   - $ X $ 是输入数据的矩阵。
+   - $ w $ 是模型的权重向量。
+   - $ b $ 是模型的偏置项。
+
+   在这个公式中，矩阵$X $ 与向量$w $ 进行矩阵乘法，然后加上偏置$b $ 以得到预测值$\hat{y} $。
+
+2. **均方误差损失函数（MSE Loss）的计算公式**：
+
+   均方误差损失函数用于衡量预测值$\hat{y} $ 与真实值$y $ 之间的差异。其数学公式为：
+
+   $$\text{MSE} = \frac{1}{n} \sum_{i=1}^{n} (\hat{y}_i - y_i)^2 $$
+
+   其中，
+   - $ \hat{y}_i $ 是第$i $ 个样本的预测值。
+   - $ y_i $ 是第$i $ 个样本的真实值。
+   - $ n $ 是样本数量。
+
+   这个公式计算了预测值和真实值之差的平方，然后对所有样本求平均，得到整体预测误差的均方值。
+
+在这两个公式中，预测公式是线性模型的基础，而MSE损失函数是衡量预测准确性的常用方法，特别是在回归问题中。
+
+#### 手动计算梯度
+
+```python
+import torch
+
+# 假设的特征和权重
+true_weights = torch.tensor([2.0, -3.5])
+true_bias = torch.tensor([5.0])
+
+# 创建一些合成数据
+x_data = torch.randn(100, 2)  # 100个样本，每个样本2个特征
+print('x_data',x_data)
+y_data = x_data @ true_weights + true_bias  # @表示矩阵乘法
+print(y_data)
+
+# 在y_data中添加一些随机数
+random_noise = torch.randn(y_data.shape)   # 添加正态分布的随机数
+y_data += random_noise
+
+# 重新初始化权重和偏置
+weights = torch.randn(2, requires_grad=False)
+bias = torch.randn(1, requires_grad=False)
+
+# 损失函数 - 均方误差
+def mse_loss(y_pred, y_true):
+    return ((y_pred - y_true) ** 2).mean()
+
+# 设置学习率
+learning_rate = 0.01
+
+# 迭代次数
+iterations = 1000
+
+# 执行手动梯度计算和更新
+for _ in range(iterations):
+    # 计算预测值
+    y_pred = x_data @ weights + bias
+
+    # 计算损失
+    loss = mse_loss(y_pred, y_data)
+
+    # 手动计算梯度
+    grad_w = (2.0 / x_data.shape[0]) * (x_data.t() @ (y_pred - y_data))
+    grad_b = (2.0 / x_data.shape[0]) * torch.sum(y_pred - y_data)
+
+    # 更新权重和偏置
+    weights -= learning_rate * grad_w
+    bias -= learning_rate * grad_b
+
+# 打印结果
+print(f"Estimated weights: {weights}")
+print(f"Estimated bias: {bias}")
+```
+
+![image-20240211114605931](C:\Users\86157\AppData\Roaming\Typora\typora-user-images\image-20240211114605931.png)
+
+当使用均方误差（Mean Squared Error, MSE）作为损失函数时，对于线性模型 $ y = wx + b $（其中 $ w $ 是权重，$ b $ 是偏置），损失函数关于权重 $ w $ 和偏置 $ b $ 的梯度可以通过微积分的方法得到。这些梯度的公式如下：
+
+1. 权重的梯度 $ \nabla_w L $ 是损失 $ L $ 对 $ w $ 的偏导数，给出了 $ w $ 在减少损失方面应该如何改变。对于 MSE 损失，这个梯度是 $ \frac{2}{n} \times X^T \times (y_{pred} - y_{true}) $，其中 $ X^T $ 是输入数据的转置，$ y_{pred} $ 是模型预测，$ y_{true} $ 是真实标签。
+
+2. 偏置的梯度 $ \nabla_b L $ 是损失 $ L $ 对 $ b $ 的偏导数，给出了 $ b $ 在减少损失方面应该如何改变。其梯度是 $ \frac{2}{n} \times \sum(y_{pred} - y_{true}) $。
+
+这些梯度计算是基于数学推导得到的，通常在机器学习、深度学习和统计学的基础教材或课程中会进行介绍。
+
+#### 正规方程法
+
+要使用正规方程（Normal Equation）求解线性回归的权重 $ w $ 和偏置 $ b $，可以应用以下公式：
+
+$$ w = (X^TX)^{-1}X^Ty $$
+
+在这个公式中，$ X $ 是设计矩阵（即包含输入特征的矩阵，每个样本一行），$ y $ 是目标值向量。在我们的案例中，因为我们还需要计算偏置项 $ b $，所以我们需要向设计矩阵 $ X $ 添加一列全为1的列，以便包括偏置项。
+
+```python
+import torch
+
+# 假设的特征和权重
+true_weights = torch.tensor([2.0, -3.5])
+true_bias = torch.tensor([5.0])
+
+# 创建一些合成数据
+x_data = torch.randn(100, 2)  # 100个样本，每个样本2个特征
+y_data = x_data @ true_weights + true_bias  # @表示矩阵乘法
+
+# 在y_data中添加一些随机数
+random_noise = torch.randn(y_data.shape)   # 添加正态分布的随机数
+y_data += random_noise
+
+# 向x_data添加一列1以包括偏置项
+X_with_bias = torch.cat([x_data, torch.ones(x_data.shape[0], 1)], dim=1)
+
+# 使用正规方程求解权重和偏置
+w_with_bias = torch.inverse(X_with_bias.t() @ X_with_bias) @ X_with_bias.t() @ y_data
+
+# 提取权重和偏置
+estimated_weights = w_with_bias[:-1]
+estimated_bias = w_with_bias[-1]
+
+# 打印结果
+print(f"Estimated weights: {estimated_weights}")
+print(f"Estimated bias: {estimated_bias}")
+
+```
+
+通过应用正规方程，我们得到了估计的权重和偏置值。这种方法直接使用数学公式计算出最优的权重和偏置，而不需要迭代的梯度下降过程。
+
+最终得到的估计权重和偏置为：
+
+- Estimated weights: tensor([ 1.9375, -3.5818])
+- Estimated bias: 5.003337860107422
+
+这些估计值非常接近我们的模拟数据中使用的真实权重（2.0, -3.5）和真实偏置（5.0）。这说明正规方程成功地从数据中恢复出了近似的线性关系。这种方法在数据集不是特别大且特征数量不是非常多的情况下非常有效。
+
+#### *正规方程的证明：几何法
+
+正规方程 $ w = (X^TX)^{-1}X^Ty $ 实际上可以从几何角度通过考虑目标向量 $ y $ 在由 $ X $ 的列向量构成的空间内的投影来推导。这个过程基于最小二乘法的原理，即找到一个解使得预测值和真实值之间的差异（误差）最小。
+
+![image-20240211123355498](C:\Users\86157\AppData\Roaming\Typora\typora-user-images\image-20240211123355498.png)
+
+![image-20240211123453753](C:\Users\86157\AppData\Roaming\Typora\typora-user-images\image-20240211123453753.png)
+
+#### *正规方程的证明：代数法
+
+![image-20240211145358977](C:\Users\86157\AppData\Roaming\Typora\typora-user-images\image-20240211145358977.png)
+
+![image-20240211145433232](C:\Users\86157\AppData\Roaming\Typora\typora-user-images\image-20240211145433232.png)
+
+1. **定义目标**：我们希望找到一个权重向量 $ w $，使得 $ Xw $ 尽可能接近 $ y $。这里，$ X $ 是设计矩阵，其列代表不同的特征，$ y $ 是目标向量。
+
+2. **误差向量**：定义误差向量 $ e = y - Xw $。我们的目标是最小化这个误差向量的长度，即最小化 $ e^Te $。
+
+3. **最小化误差**：要最小化 $ e^Te $，即最小化 $ (y - Xw)^T(y - Xw) $。展开这个表达式，我们得到 $ y^Ty - y^TXw - w^TX^Ty + w^TX^TXw $
+
+   - 展开的细节
+
+     1. **展开转置**：首先，我们应用转置运算的性质。如果有两个向量或矩阵 $A$ 和 $B$，那么 $(A - B)^T$ 等于 $A^T - B^T$。所以，$(y - Xw)^T$ 可以写为 $y^T - (Xw)^T$。
+
+     2. **进一步转置**：接着，应用转置运算的另一个性质，即 $(AB)^T = B^TA^T$。这意味着 $(Xw)^T$ 等于 $w^TX^T$。
+
+     3. **将转置应用到整个表达式**：因此，原始表达式变为 $y^T - w^TX^T$ 乘以 $y - Xw$。
+
+     4. **应用分配律**：接下来，我们使用矩阵乘法的分配律将这个乘法展开。这就像展开普通的多项式一样，即 $A(B - C) = AB - AC$。所以我们得到：
+
+        $$ (y^T - w^TX^T)(y - Xw) = y^Ty - y^TXw - w^TX^Ty + w^TX^TXw $$
+
+     在这里：
+        - $y^Ty$ 是一个标量，表示向量 $y$ 的元素平方和。
+        - $y^TXw$ 和 $w^TX^Ty$ 是等价的，因为它们都表示相同的内积（y和Xw的内积）。它们也是标量。
+        - $w^TX^TXw$ 是向量 $Xw$ 的元素平方和，也是一个标量。
+
+
+1. **求解最小值**：要找到 $ w $ 使得上述表达式最小，我们对 $ w $ 求导并设其为零。这给出 $ -2X^Ty + 2X^TXw = 0 $。
+
+   - 求导的细节
+
+   - 当我们对表达式 $ y^Ty - y^TXw - w^TX^Ty + w^TX^TXw $ 中的 $ w $ 求导时，需要考虑到 $ w $ 是一个向量。这里的求导涉及到向量微积分的知识。我们逐项对 $ w $ 求导：
+
+     1. **对 $ y^Ty $ 求导**：这一项与 $ w $ 无关，所以它的导数为零。
+
+     2. **对 $ -y^TXw $ 求导**：这一项是一个关于 $ w $ 的线性项。它的导数是 $ -X^Ty $。这里我们应用了向量微积分中的规则：如果 $ y = Xw $，那么 $ \frac{\partial y}{\partial w} = X^T $。
+
+     3. **对 $ -w^TX^Ty $ 求导**：由于矩阵乘法的性质，这一项与上一项相同，其导数也是 $ -X^Ty $。
+
+     4. **对 $ w^TX^TXw $ 求导**：这是一个关于 $ w $ 的二次项。根据向量微积分的规则，$ \frac{\partial (w^T A w)}{\partial w} = 2Aw $（其中 $ A $ 是一个对称矩阵）。因此，这一项的导数是 $ 2X^TXw $。
+
+     将所有这些部分组合起来，我们得到：
+
+     $$ \frac{\partial}{\partial w} (y^Ty - y^TXw - w^TX^Ty + w^TX^TXw) = 0 - X^Ty - X^Ty + 2X^TXw = -2X^Ty + 2X^TXw $$
+
+     所以，最终的导数是 $ -2X^Ty + 2X^TXw $。在最小化损失函数的上下文中，将这个导数设为零可以帮助我们找到最优的 $ w $ 值。
+
+2. **解方程**：简化上述方程，我们得到 $ X^TXw = X^Ty $。如果 $ X^TX $ 是可逆的，我们可以两边同时乘以 $ (X^TX)^{-1} $，得到 $ w = (X^TX)^{-1}X^Ty $。
+
+这就是正规方程的推导过程。它基于最小化误差向量的二范数，这也就是为什么这种方法被称为最小二乘法。这种方法在 $ X^TX $ 可逆的情况下特别有效，但如果 $ X $ 的列之间高度相关（即存在多重共线性）或者 $ X $ 的列数远大于样本数（即过度确定的情况），则 $ X^TX $ 可能不可逆或者非常接近奇异，这种情况下需要考虑其他方法，如岭回归（Ridge Regression）。
+
+#### pytorch方法
+
+#### 步骤·1:准备数据
+
+**如果不熟悉python的类和继承，后面的pytorch语法可能比较难懂**
+
+回顾一下python当中类、类的成员、构造函数、继承、重写的概念
+```python
+# 定义一个父类Animal
+class Animal:
+    def __init__(self, name):#在类的方法中，第一个参数通常都是self，它表示类的实例本身，
+        self.name = name
+
+    def speak(self):
+        print(f"{self.name} makes a sound")
+
+# 定义一个子类Dog，继承自Animal
+class Dog(Animal):
+    def __init__(self, name, breed):
+        # 调用父类的初始化方法，并传入name参数
+        super().__init__(name)#等价于self.name = name
+        self.breed = breed
+
+    # 子类可以重写父类的方法
+    def speak(self):
+        print(f"{self.name} barks")
+
+    def fetch(self):
+        print(f"{self.name} fetches the ball")
+
+# 创建一个Animal类的实例
+animal = Animal("Generic Animal")
+animal.speak()  # 输出: Generic Animal makes a sound
+
+# 创建一个Dog类的实例
+dog = Dog("Buddy", "Golden Retriever")
+dog.speak()    # 输出: Buddy barks
+dog.fetch()    # 输出: Buddy fetches the ball
+
+```
+
+1. **类（Class）**：类是面向对象编程的基本组成单元。在python中，通过**关键字 `class` 来定义一个类。**
+
+2. **构造函数（Constructor）**：在 Python 中，**构造函数的方法名为 `__init__()`**，通过在类中定义 `__init__()` 方法来创建构造函数。构造函数可以接受参数，用于初始化对象的属性。
+
+3. **类的成员**：类的成员包括属性（属性是类的数据成员）和方法（方法是类的函数成员）。在上面的代码中，**`name` 和 `breed` 是类的属性，`speak()` 和 `fetch()` 是类的方法。**
+
+4. **继承（Inheritance）**：继承是面向对象编程中一种重要的概念，它允许一个类（子类）继承另一个类（父类）的属性和方法。在 Python 中，**通过在定义子类时在类名后面添加括**号，并指定父类的名称来实现继承。**在子类中可以使用 `super()` 函数来调用父类的方法。**
+
+5. **重写（Override）**：重写是指**子类重新定义或覆盖父类中的方法**，以实现自己的功能或行为。在上面的代码中，**`Dog` 类重写了父类 `Animal` 中的 `speak()` 方法**，以实现不同的行为。
+
+在上面的例子中，**`super().__init__(name)`可以替换为`self.name = name`达到相同的效果**，但是这样会导致子类无法调用父类的初始化方法，从而破坏了继承关系，因此不推荐这样做。正确的做法是在子类的构造函数中使用`super().__init__(name)`来调用父类的初始化方法，以确保父类的初始化逻辑也被执行。
+
+**`super()`函数的括号内是可以传入参数的**，这些参数用于指定在哪个类的上下文中执行方法。举个例子：
+
+```python
+class Parent:
+    def __init__(self, name):
+        self.name = name
+
+class Child(Parent):
+    def __init__(self, name, age):
+        super(Child, self).__init__(name)  # 在子类中调用父类的初始化方法，并传入name参数
+        self.age = age
+
+child = Child("Alice", 5)
+print(child.name)  # 输出: Alice
+print(child.age)   # 输出: 5
+```
+
+在绝大多数情况下，`super().__init__(name)`与`super(Child, self).__init__(name)`是等价的。但是，在多重继承的情况下，这两者可能会产生不同的结果。
+
 #### 步骤 2: 定义模型
 
-我们将使用 PyTorch 的 `nn.Module` 类来定义我们的模型。对于线性回归，我们可以使用 PyTorch 提供的 `nn.Linear` 层。
-在 PyTorch 中，`LinearRegressionModel` 是您自定义的类的名字，并不是系统库的。您可以根据您的需求给这个类命名，但最好选择一个描述性的名称，以便清楚地表明类的功能。
-当您定义一个类并在括号里写 `nn.Module` 时，您的类 `LinearRegressionModel` 成为 `nn.Module` 的子类。这意味着您的类继承了 `nn.Module` 的所有功能，包括参数管理、钩子函数、训练/评估模式切换等。
+**我们将使用 PyTorch 的 `nn.Module` 类来定义我们的模型**。对于线性回归，我们可以使用 PyTorch 提供的 `nn.Linear` 层。
+在 PyTorch 中，`LinearRegressionModel` 是您自定义的类的**名字，并不是系统库的**。您可以根据您的需求给这个类命名，但最好选择一个描述性的名称，以便清楚地表明类的功能。
+当您定义一个类并在括号里写 `nn.Module` 时，您的类 `LinearRegressionModel` **成为 `nn.Module` 的子类**。这意味着您的类继承了 `nn.Module` 的所有功能。
+
+在子类的`__init__()`方法中，**通过`super().__init__()`调用父类的`__init__()`方法，来初始化**继承自父类的成员变量和方法。
+
+而在`__init__()`方法中，通过`self.linear = nn.Linear(input_size, 1)`这一语句，创建了一个`nn.Linear`对象，并将其**赋值给了子类的成员变量`self.linear`**。这样，子类就拥有了一个线性层对象，可以在前向传播中使用。
 
 ```python
 class LinearRegressionModel(nn.Module):
@@ -2488,15 +2829,24 @@ class LinearRegressionModel(nn.Module):
         self.linear = nn.Linear(input_size, 1)
 
     def forward(self, x):
-        # 前向传播函数
+        # 前向传播函数-
         return self.linear(x)
 
 # 实例化模型
 model = LinearRegressionModel(input_size=2)
 ```
 
-当您在模型上调用 `model(x)` 时，PyTorch 会自动调用 `forward` 方法。这是实现自定义模块时必须遵循的 PyTorch 框架的约定。
-`LinearRegressionModel` 类继承自 `nn.Module`，并且重写了 `forward()` 方法。这意味着在创建 `LinearRegressionModel` 对象时，可以调用 `forward()` 方法来执行模型的前向传播，从而计算模型的输出。
+`LinearRegressionModel` 类继承自 `nn.Module`，并且**重写了 `forward()` 方法**。`model.forward()`方法会在**调用`model()`时自动触发**。
+
+事实上，之前
+
+```python
+output_data=nn.Linear(4, 3)(input_data)#会自动调用nn.Linear类的forward()方法
+```
+
+就会调用forward()方法。
+
+由于我们的任务是构建`y=x1*w1+x2*w2+b`,也就是2输入特征，1输出特征，所以线性层参数应该是`nn.Linear(2,1)`。
 
 #### 步骤 3: 定义损失函数和优化器
 
@@ -2510,6 +2860,21 @@ loss_function = nn.MSELoss()
 optimizer = SGD(model.parameters(), lr=0.01)
 ```
 
+**优化器是**机器学习和深度学习中用于**最小化**（或最大化）**损失函数**或目标函数**的方法**。
+
+1. **Stochastic Gradient Descent (SGD)随机梯度下降**：
+   - SGD是最基本的优化器之一。它对每个训练样本或小批量样本计算梯度，并相应地更新模型参数。
+   - SGD通常伴随着一个学习率参数，有时还会使用动量（momentum）来加速训练。
+2. **Adam (Adaptive Moment Estimation)**：略
+3. **RMSprop (Root Mean Square Propagation)**：略
+
+`optimizer = SGD(model.parameters(), lr=0.01)` 表示使用随机梯度下降（Stochastic Gradient Descent，简称 SGD）作为优化器来更新模型的参数**。这里的 `model.parameters()` 是指模型中所有需要学习的参数（在这个例子中是线性层的权重和偏置）**，**`lr=0.01` 是设置的学习率。**
+
+优化器的作用是根据计算出的梯度来更新模型的参数。在训练过程中，每次迭代会执行以下步骤：
+1. **`optimizer.zero_grad()`：清空过去的梯度。**
+2. **`loss.backward()`：通过反向传播计算当前梯度。**
+3. **`optimizer.step()`：根据梯度更新网络参数。**
+
 #### 步骤 4: 训练模型
 
 现在我们可以开始训练我们的模型了。
@@ -2522,6 +2887,8 @@ for epoch in range(epochs):
     optimizer.zero_grad()  # 清空过往梯度
 
     y_pred = model(x_data)  # 进行预测
+	#print(y_pred == x_data @ model.linear.weight.t() +model.linear.bias )
+	'''上述预测的本质是y=xw+b,上面的代码可以验证'''
     loss = loss_function(y_pred, y_data.unsqueeze(1))  # 计算损失
 
     loss.backward()  # 反向传播，计算当前梯度
@@ -2530,7 +2897,60 @@ for epoch in range(epochs):
     # 每隔一段时间输出训练信息
     if (epoch+1) % 50 == 0:
         print(f'Epoch [{epoch+1}/{epochs}], Loss: {loss.item():.4f}')
+
+
+#如果不好理解，可以和之前的对比
+'''
+# 执行手动梯度计算和更新
+for _ in range(iterations):
+    # 计算预测值
+    y_pred = x_data @ weights + bias
+
+    # 计算损失
+    loss = mse_loss(y_pred, y_data)
+
+    # 手动计算梯度
+    grad_w = (2.0 / x_data.shape[0]) * (x_data.t() @ (y_pred - y_data))
+    grad_b = (2.0 / x_data.shape[0]) * torch.sum(y_pred - y_data)
+
+    # 更新权重和偏置
+    weights -= learning_rate * grad_w
+    bias -= learning_rate * grad_b
+'''
 ```
+
+这两段代码分别代表了使用 PyTorch 库和手动实现线性回归的训练过程。核心代码的对应关系可以这样解释：
+
+1. **计算预测值**：
+   - PyTorch: `y_pred = model(x_data)`
+   - 手动: `y_pred = x_data @ weights + bias`
+
+   这两行代码都是在计算模型的预测输出。PyTorch 版本中，`model(x_data)` 调用了模型的 `forward` 方法来计算预测值，而手动版本直接使用矩阵乘法和向量加法来进行计算。
+
+2. **计算损失**：
+   - PyTorch: `loss = loss_function(y_pred, y_data.unsqueeze(1))`
+   - 手动: `loss = mse_loss(y_pred, y_data)`
+
+   这里都是在计算预测值和真实值之间的损失，使用的是均方误差（Mean Squared Error, MSE）作为损失函数。在 PyTorch 版本中，`loss_function` 是预先定义的 MSE 损失函数，而在手动版本中，损失是通过 `mse_loss` 函数直接计算的。
+
+3. **计算梯度**：
+   - PyTorch: `loss.backward()`
+   - 手动: `grad_w = (2.0 / x_data.shape[0]) * (x_data.t() @ (y_pred - y_data))` 和 `grad_b = (2.0 / x_data.shape[0]) * torch.sum(y_pred - y_data)`
+
+   在 PyTorch 版本中，`loss.backward()` 自动计算损失相对于模型参数的梯度。在手动版本中，梯度是通过应用梯度公式直接计算的。
+
+4. **更新模型参数**：
+   - PyTorch: `optimizer.step()`
+   - 手动: `weights -= learning_rate * grad_w` 和 `bias -= learning_rate * grad_b`
+
+   在 PyTorch 版本中，`optimizer.step()` 根据计算出的梯度自动更新模型的权重和偏置。在手动版本中，权重和偏置的更新是通过直接应用梯度下降公式手动进行的。
+
+总结来说，这两段代码在功能上是等价的：它们都实现了线性回归模型的训练过程，包括预测值的计算、损失的计算、梯度的计算和模型参数的更新。区别在于 PyTorch 版本利用了库中的功能来简化这些步骤，而手动版本则显式地实现了所有这些步骤。
+**其他:**
+
+1. `model.train()`: 这一行将模型设置为训练模式。这对于某些类型的层，如 `Dropout` 和 `BatchNorm` 等，是非常重要的，因为这些层在训练和评估（预测）模式下的行为是不同的。如果省略了这一行，而模型中又使用了这些类型的层，那么它们将不会以适当的方式（例如，启用 dropout 或使用批量统计数据而非移动平均）运行，这**可能会影响训练的效果**。如果模型很简单，例如只有线性层，那么 `model.train()` 可能不会有太大影响。
+
+2. `optimizer.zero_grad()`: 在每次迭代中清空过往梯度是必要的。在PyTorch中，梯度是累加的，这意味着每次调用 `.backward()` 方法时，新计算的梯度会添加到已经存在的梯度上。**如果不清空梯度，那么每一轮的梯度就会与前一轮的梯度累加在一起**，导致梯度更新不正确。这可能会导致模型训练非常不稳定，甚至完全无法收敛。
 
 #### 步骤 5: 评估模型
 
@@ -2544,7 +2964,6 @@ print("模型参数:", model.linear.weight.data, model.linear.bias.data)
 
 以上所有代码片段合并起来，就构成了一个完整的多变量线性回归模型训练过程。
 
-这个例子展示了如何使用 PyTorch 构建和训练一个简单的线性回归模型。通过这个过程，您可以了解如何定义自己的模型、如何通过损失函数和优化器来迭代训练模型，以及如何评估模型的性能。
 #### 步骤6：画图
 
 对于两个特征变量的线性回归，您可以在三维空间中绘制一个平面来表示预测的模型，以及散点图来表示数据点。这可以使用 `matplotlib` 库中的 `mplot3d` 模块来完成。以下是示例代码：
@@ -2558,16 +2977,22 @@ from mpl_toolkits.mplot3d import Axes3D
 # 创建一个新的图形
 fig = plt.figure()
 ax = fig.add_subplot(111, projection='3d')
+'''创建了一个新的 matplotlib 图形和一个 3D 子图。111 表示图形布局是 1x1 网格的第一个子图，projection='3d' 指定了子图是 3D 的。'''
 
 # 绘制原始数据点
 ax.scatter(x_data[:, 0].numpy(), x_data[:, 1].numpy(), y_data.numpy())
+'''在 3D 空间中绘制原始数据点。x_data[:, 0] 和 x_data[:, 1] 是输入数据的两个特征，y_data 是目标值。(x_data[i,0],x_data[i,1],y_data[i])可以构成一个数据点'''
 
 # 为了绘制平面，我们需要创建一个网格并计算相应的y值
-x1_grid, x2_grid = torch.meshgrid(torch.linspace(-3, 3, 10), torch.linspace(-3, 3, 10))
+x1_grid, x2_grid = torch.meshgrid(torch.linspace(-3, 3, 10), 
+torch.linspace(-3, 3, 10))
+'''torch.linspace(-3, 3, 10) 创建了从 -3 到 3 的均匀分布的 10 个点，torch.meshgrid 生成了对应的网格点。'''
 y_grid = model.linear.weight[0, 0].item() * x1_grid + model.linear.weight[0, 1].item() * x2_grid + model.linear.bias.item()
+'''计算了在每个网格点上的预测值。它使用了模型训练后的权重和偏置来计算每个点的预测 y 值。'''
 
 # 绘制预测平面
 ax.plot_surface(x1_grid.numpy(), x2_grid.numpy(), y_grid.numpy(), alpha=0.5)
+'''绘制了预测的平面。plot_surface 用于绘制 3D 表面图，alpha=0.5 设置了表面的透明度。'''
 
 # 设置坐标轴标签
 ax.set_xlabel('X1')
@@ -2579,5 +3004,25 @@ plt.show()
 ```
 
 在这段代码中，我们首先绘制了数据点，然后创建了一个网格来代表特征空间，并使用模型的权重和偏置来计算网格上每个点的预测值，从而绘制了预测平面。
+![image-20240211180135422](C:\Users\86157\AppData\Roaming\Typora\typora-user-images\image-20240211180135422.png)
 
-请注意，这段代码假设 `model` 已经被训练并且包含了线性回归模型的权重和偏置。此外，`x_data` 和 `y_data` 是原始数据集的特征和目标值。您可以调整代码中的数值和变量以匹配您的实际数据和模型。
+**为什么是一个平面?**
+
+在给定的代码中，`LinearRegressionModel` 类定义了一个简单的线性回归模型，它使用 `nn.Linear` 来创建一个线性层。这个线性层本质上是执行了以下数学运算：
+
+$$ \hat{y} = Xw + b $$
+
+其中：
+- $ \hat{y} $ 是预测值。
+- $ X $ 是输入特征。
+- $ w $ 是模型的权重。
+- $ b $ 是模型的偏置。
+
+对于一个拥有两个特征的输入 $ X = [x_1, x_2] $，线性模型变为：
+
+$$ \hat{y} = w_1x_1 + w_2x_2 + b $$
+
+**这是一个平面方程在三维空间中的表示形式**。在这个方程中，$ w_1 $ 和 $ w_2 $ 是平面的方向系数，$ b $ 是截距项。因此，无论输入数据是什么，线性回归模型的输出都会形成一个平面。
+
+**就和中学时的线性回归`y=kx+b`是拟合一条直线一样。**
+
