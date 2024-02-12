@@ -3026,3 +3026,384 @@ $$ \hat{y} = w_1x_1 + w_2x_2 + b $$
 
 **就和中学时的线性回归`y=kx+b`是拟合一条直线一样。**
 
+### 卷积神经网络
+
+![image-20240211193727742](C:\Users\86157\AppData\Roaming\Typora\typora-user-images\image-20240211193727742.png)
+
+#### MNIST 数据集
+
+一个经典的卷积神经网络（CNN）例子是使用 PyTorch 在 MNIST 数据集上训练一个简单的网络。**MNIST 是一个包含手写数字（0到9）的大型数据库**，常用于训练各种图像处理系统。
+
+下面是一个基本的 CNN 结构，用于识别 MNIST 数据集中的手写数字。我会提供代码示例和每一部分的简要说明：
+
+```python
+import torch
+import torch.nn as nn
+import torch.optim as optim
+import torchvision.transforms as transforms
+import torchvision.datasets as datasets
+from torch.utils.data import DataLoader
+
+# 定义 CNN 模型
+class ConvNet(nn.Module):
+    def __init__(self):
+        super(ConvNet, self).__init__()
+        self.conv1 = nn.Conv2d(1, 32, kernel_size=3, stride=1, padding=1)
+        self.pool = nn.MaxPool2d(kernel_size=2, stride=2)
+        self.conv2 = nn.Conv2d(32, 64, kernel_size=3, stride=1, padding=1)
+        self.fc1 = nn.Linear(64 * 7 * 7, 1000)
+        self.fc2 = nn.Linear(1000, 10)
+
+    def forward(self, x):
+        x = self.pool(torch.relu(self.conv1(x)))
+        x = self.pool(torch.relu(self.conv2(x)))
+        x = torch.flatten(x, 1)
+        x = torch.relu(self.fc1(x))
+        x = self.fc2(x)
+        return x
+
+# 加载 MNIST 数据集
+transform = transforms.Compose([transforms.ToTensor(), transforms.Normalize((0.5,), (0.5,))])
+train_dataset = datasets.MNIST(root='./data', train=True, download=True, transform=transform)
+test_dataset = datasets.MNIST(root='./data', train=False, download=True, transform=transform)
+
+train_loader = DataLoader(dataset=train_dataset, batch_size=64, shuffle=True)
+test_loader = DataLoader(dataset=test_dataset, batch_size=64, shuffle=False)
+
+# 实例化模型、定义损失函数和优化器
+model = ConvNet()
+criterion = nn.CrossEntropyLoss()
+optimizer = optim.SGD(model.parameters(), lr=0.01, momentum=0.9)
+
+# 训练模型
+num_epochs = 5
+for epoch in range(num_epochs):
+    for i, (images, labels) in enumerate(train_loader):
+	    #print(images.size(),labels.size())
+	    '''torch.Size([64, 1, 28, 28]) torch.Size([64])'''
+		# print(labels)
+		'''
+		tensor([4, 5, 1, 1, 7, 5, 3, 5, 7, 4, 6, 4, 7, 9, 2, 4, 5, 8, 1, 7, 3, 5, 1, 6,
+        3, 1, 9, 3, 3, 4, 6, 2, 4, 0, 2, 5, 3, 1, 1, 8, 6, 1, 6, 6, 9, 0, 0, 2,
+        6, 4, 8, 3, 8, 0, 5, 5, 6, 3, 4, 0, 1, 5, 1, 3])
+		'''
+        # 前向传播
+        outputs = model(images)
+        # print(outputs.size())
+		'''torch.Size([64, 10])'''
+        loss = criterion(outputs, labels)
+
+        # 反向传播和优化
+        optimizer.zero_grad()
+        loss.backward()
+        optimizer.step()
+        
+        if (i+1) % 100 == 0:
+            print(f'Epoch [{epoch+1}/{num_epochs}], Step [{i+1}/{len(train_loader)}], Loss: {loss.item():.4f}')
+
+# 测试模型
+model.eval()
+with torch.no_grad():
+    correct = 0
+    total = 0
+    for images, labels in test_loader:
+        outputs = model(images)
+        _, predicted = torch.max(outputs.data, 1)
+        total += labels.size(0)
+        correct += (predicted == labels).sum().item()
+
+print(f'Accuracy of the model on the 10000 test images: {100 * correct / total}%')
+```
+
+这个例子包括以下部分：
+1. **模型定义**：定义了一个简单的 CNN，包含两个卷积层，两个全连接层。
+2. **数据加载**：使用 torchvision 加载并预处理 MNIST 数据集。
+3. **训练循环**：进行前向传播、计算损失、反向传播以及优化步骤。
+4. **测试模型**：在测试集上评估模型的准确度。
+
+请确保您已经安装了 PyTorch 和 torchvision(之前的anaconda已经安装了)。您可以直接运行这个脚本来训练模型。这只是一个起点，您可以根据需要调整模型的结构、超参数等。
+
+#### 加载数据集
+
+MNIST 数据集存储在 `.gz` 文件中，这是 gzip 压缩格式。当解压后，数据以 IDX 文件格式存储，这是一个用于向量和多维矩阵的文件格式，通常用于存储大量的数据。
+
+MNIST 数据集的图像是**黑白图像（单通道），每张图像的大小是 28x28 像素**。在 PyTorch 中，图像会被转换为 **`FloatTensor`，其形状为 `[batch_size, channels, height, width]`**。对于 MNIST 数据集，这将是 **`[batch_size, 1, 28, 28]`**。这里的 `batch_size` 取决于您在 `DataLoader` 中定义的大小，`channels` 是 1（因为是黑白图像），`height` 和 `width` 都是 28。
+
+![image-20240211193543384](C:\Users\86157\AppData\Roaming\Typora\typora-user-images\image-20240211193543384.png)
+
+1. **定义数据转换**：
+   
+   ```python
+   transform = transforms.Compose([transforms.ToTensor(), transforms.Normalize((0.5,), (0.5,))])
+   ```
+   `transforms.Compose` 是一个组合类，它将多个变换组合在一起。在这个特定的例子中，包含了两个变换：`transforms.ToTensor()` 和 `transforms.Normalize((0.5,), (0.5,))`。
+   
+   1. **`transforms.ToTensor()`**：
+      
+      - **原始数据**：MNIST 数据集中的原始图像是 PIL 图像格式，每个像素的值是一个从 0 到 255 的整数。
+      - **类型转换**：`transforms.ToTensor()` 会将 PIL 图像或 NumPy `ndarray` 转换为 PyTorch 的 `FloatTensor`。
+      - **数值转换**：
+        $$
+        \text{normalized\_value} = \frac{\text{original\_value}}{255}
+        $$
+        即将原始像素值除以 255，使得像素值范围从 [0, 255] 缩放到 [0.0, 1.0]。
+      - **结果**：转换后的张量的形状是 `(C, H, W)`，其中 `C` 是通道数（对于 MNIST 是 1，因为它是灰度图像），`H` 是图像的高度，`W` 是图像的宽度。同时，像素值会被缩放到 `[0, 1]` 的范围内，即原来的整数 `0-255` 被转换成了浮点数 `0.0-1.0`。
+      
+   2. **`transforms.Normalize((0.5,), (0.5,))`**：
+      
+      - **原始数据**：此时，输入数据是经过 `ToTensor()` 转换后的，像素值范围为 `[0, 1]` 的张量。
+      - **归一化公式**：归一化操作是按通道执行的，公式为：
+        $$ \text{output[channel]} = \frac{\text{input[channel]} - \text{mean[channel]}}{\text{std[channel]}} $$
+      - **转换过程**：归一化操作会对输入数据的每个通道执行以下操作：
+        其中 `mean` 和 `std` 是预先定义的均值和标准差。在这个例子中，由于是单通道图像，我们只有一个均值和一个标准差。在许多情况下，如果数据近似在 [0, 1] 的范围内，则均值和标准差常常会选择为 0.5。
+      - **结果**：因此，**每个像素值会先减去 0.5，然后除以 0.5。这意味着经过归一化后的数据将有一个大约范围为 `[-1, 1]`** 的新的均值和标准差。
+   
+   综合来看，这个转换管道将图像数据从 `[0, 255]` 的整数值缩放并转换成了 `[0, 1]` 的浮点数值，并进一步将其标准化到大约 `[-1, 1]` 的范围。这样的预处理步骤通常是因为**归一化后的数据对于模型的训练来说收敛更快，性能也更好**。
+   
+2. **加载训练和测试数据集**：
+   
+   ```python
+   train_dataset = datasets.MNIST(root='./data', train=True, download=True, transform=transform)
+   test_dataset = datasets.MNIST(root='./data', train=False, download=True, transform=transform)
+   ```
+   这两行代码分别**加载训练集和测试集。**
+   - `datasets.MNIST` 是一个封装好的数据集类，它能自动处理 MNIST 数据集的下载和加载。
+   - **`root='./data'` 指定了数据集的保存位置，如果该位置没有数据集，则会自动下载。**
+   - `train=True` 或 `train=False` 指定了是加载训练集还是测试集。
+   - `download=True` 告诉程序如果数据集不在 `root` 指定的路径下，则需要从互联网上下载数据集。
+   - `transform=transform` 应用之前定义的转换到数据集的每个元素。
+   
+3. **创建数据加载器**：
+   ```python
+   train_loader = DataLoader(dataset=train_dataset, batch_size=64, shuffle=True)
+   test_loader = DataLoader(dataset=test_dataset, batch_size=64, shuffle=False)
+   ```
+   这两行代码创建了数据加载器，用于迭代地加载数据集。
+   - `DataLoader` 是 PyTorch 中的一个类，它提供了对 `Dataset` 的封装，方便批量加载数据，并且可以提供多进程加速。
+   - `dataset=train_dataset` 或 `dataset=test_dataset` 指定了要加载的数据集。
+   - **`batch_size=64` 指定了每个批次加载多少样本。**
+   - `shuffle=True` 或 `shuffle=False` 指定了是否在每个 epoch 开始时打乱数据。
+
+至于数据集的来源，`torchvision` 的 `datasets` 类已经预定义了常用数据集的下载 URL。因此，当你调用 `datasets.MNIST` 并设置 `download=True` 时，它会自动从预定义的 URL 下载数据集。
+
+文件名也是由 `datasets.MNIST` 类内部处理的。它知道 MNIST 数据集的文件结构和文件名，所以用户不需要指定这些细节。这使得下载和加载数据变得非常简单和方便。
+
+#### 设计神经网络
+
+```python
+for epoch in range(num_epochs):
+    for i, (images, labels) in enumerate(train_loader):
+	    #print(images.size(),labels.size())
+	    '''torch.Size([64, 1, 28, 28]) torch.Size([64])'''
+		# print(labels)
+		'''
+		tensor([4, 5, 1, 1, 7, 5, 3, 5, 7, 4, 6, 4, 7, 9, 2, 4, 5, 8, 1, 7, 3, 5, 1, 6,
+        3, 1, 9, 3, 3, 4, 6, 2, 4, 0, 2, 5, 3, 1, 1, 8, 6, 1, 6, 6, 9, 0, 0, 2,
+        6, 4, 8, 3, 8, 0, 5, 5, 6, 3, 4, 0, 1, 5, 1, 3])
+		'''
+        # 前向传播
+        outputs = model(images)
+        # print(outputs.size())
+		'''torch.Size([64, 10])'''
+        loss = criterion(outputs, labels)
+
+        # 反向传播和优化
+        optimizer.zero_grad()
+        loss.backward()
+        optimizer.step()
+```
+
+![image-20240212155642744](C:\Users\86157\AppData\Roaming\Typora\typora-user-images\image-20240212155642744.png)
+
+1. **初始输入图像**：
+   - 形状为 `[batch_size, 1, 28, 28]`。`batch_size` 是批次中的图像数量，这里设为 64。1 是图像的通道数（灰度图），28x28 是图像的高度和宽度。
+
+2. **第一个卷积层 (`conv1`)**：
+   - `nn.Conv2d(1, 32, kernel_size=3, stride=1, padding=1)` 应用了 32 个过滤器（卷积核），每个核的大小为 3x3，步长为 1，边缘填充为 1。
+   - 输出形状变为 `[batch_size, 32, 28, 28]`。这是因为使用了 padding，所以尽管应用了卷积，图像大小保持不变，但是通道数增加到了 32。
+
+3. **第一个池化层 (`pool`)**：
+   - `nn.MaxPool2d(kernel_size=2, stride=2)` 应用了一个大小为 2x2，步长为 2 的最大池化操作。
+   - 输出形状变为 `[batch_size, 32, 14, 14]`。池化操作减小了图像的高度和宽度的尺寸，每个维度都减半。
+
+![image-20240212155848067](C:\Users\86157\AppData\Roaming\Typora\typora-user-images\image-20240212155848067.png)
+
+1. **第二个卷积层 (`conv2`)**：
+   - `nn.Conv2d(32, 64, kernel_size=3, stride=1, padding=1)` 应用了 64 个过滤器，每个核的大小为 3x3，步长为 1，边缘填充为 1。
+   - 输出形状变为 `[batch_size, 64, 14, 14]`。通道数增加到了 64，图像大小由于 padding 保持不变。
+
+2. **第二个池化层 (`pool`)**：
+   - 使用相同的最大池化操作。
+   - 输出形状变为 `[batch_size, 64, 7, 7]`。再次减小图像的高度和宽度。
+
+![image-20240212155936501](C:\Users\86157\AppData\Roaming\Typora\typora-user-images\image-20240212155936501.png)
+
+1. **展平操作**：
+   - `torch.flatten(x, 1)` 将每个批次中的图像从三维（通道、高度、宽度）展平为一维，以便能够作为全连接层（线性层）的输入。
+   - 输出形状变为 `[batch_size, 64*7*7]`，或者说 `[batch_size, 3136]`，因为 64x7x7 = 3136。
+
+2. **第一个全连接层 (`fc1`)**：
+   - `nn.Linear(64 * 7 * 7, 1000)` 将展平后的张量连接到 1000 个神经元上。
+   - 输出形状变为 `[batch_size, 1000]`。
+
+3. **第二个全连接层 (`fc2`)**：
+   - `nn.Linear(1000, 10)` 进一步将特征从 1000 个维度减少到 10 个维度，对应于 10 个类别的数字（0-9）。
+   - 输出形状变为 `[batch_size, 10]`。
+
+在这个网络中，卷积层负责提取图像的特征，池化层负责减少特征的空间尺寸（降维），而全连接层负责将这些特征映射到最终的分类结果。
+
+##### One-hot 编码
+
+对于多分类问题，one-hot 编码是一种将类别标签转换为二进制（0和1）形式的方法。每个标签转换为一个与类别数量相等长度的向量，其中真实类别对应的元素设为 1，其余设为 0。
+
+在我们的例子中，假设有三个类别，真实类别是第一个类别(比如说一张照片可以是猫、狗、人，实际上是猫)，所以 one-hot 编码的标签将是:
+
+```plaintext
+one-hot label: [1, 0, 0]
+```
+
+#### CrossEntropyLoss交叉熵损失
+
+```python
+import torch
+import torch.nn.functional as F
+
+# 假设我们有一个三类分类问题的logits（模型输出的原始预测值）
+logits = torch.tensor([[2.0, 1.0, 0.1]])
+
+# 真实标签为第一个类别（类别索引为0）
+labels = torch.tensor([0])
+
+# 计算LogSoftmax（手动计算）
+max_logit = torch.max(logits, dim=1, keepdim=True).values
+print("max_logit",max_logit)
+
+logsumexp = torch.log(torch.sum(torch.exp(logits - max_logit), dim=1, keepdim=True)) + max_logit
+log_softmax_manual = logits - logsumexp
+print("log_softmax_manual",log_softmax_manual)
+'''log_softmax_manual tensor([[-0.4170, -1.4170, -2.3170]])'''
+
+# 计算交叉熵损失（手动计算）
+nll_loss_manual = -log_softmax_manual[0, labels]
+print("nll_loss_manual",nll_loss_manual)
+'''nll_loss_manual tensor([0.4170])'''
+
+# 使用PyTorch的库函数计算LogSoftmax和交叉熵损失
+log_softmax_lib = F.log_softmax(logits, dim=1)
+nll_loss_lib = F.nll_loss(log_softmax_lib, labels)#NLL Loss（负对数似然损失）
+cross_entropy_loss_lib = F.cross_entropy(logits, labels)
+
+# 输出计算结果进行比较
+print(log_softmax_lib, nll_loss_lib, cross_entropy_loss_lib)
+'''tensor([[-0.4170, -1.4170, -2.3170]]) tensor(0.4170) tensor(0.4170)'''
+```
+
+![image-20240212163648597](C:\Users\86157\AppData\Roaming\Typora\typora-user-images\image-20240212163648597.png)
+**LogSoftmax 计算**
+
+在手动计算中：
+- 我们首先找到最大的 logit（`max_logit`），用它来缩放 logits，减少数值不稳定性。
+- 然后，我们计算 `logsumexp`，即缩放后的 logits 的指数和的对数。
+- 最后，我们从原始 logits 中减去 `logsumexp` 来得到 `log_softmax_manual`。
+
+手动计算的 LogSoftmax 值为 `[[-0.4170, -1.4170, -2.3170]]`，对应于每个类别的概率对数。
+
+**交叉熵损失计算**
+
+交叉熵损失是负对数似然损失，计算方法是取目标类别对应的 LogSoftmax 值的负值。在这个例子中，因为真实类别是第一个类别（索引为 0），我们只取第一个类别的 LogSoftmax 值并取其相反数得到 `nll_loss_manual`。
+
+手动计算的交叉熵损失值为 `0.4170`。
+
+**库函数计算**
+
+我们也使用 PyTorch 库函数 `F.log_softmax` 来计算 LogSoftmax，和 `F.nll_loss` 及 `F.cross_entropy` 来计算交叉熵损失。
+
+库函数计算的 LogSoftmax 值也为 `[[-0.4170, -1.4170, -2.3170]]`，交叉熵损失值同样为 `0.4170`。
+
+这验证了手动计算和库函数计算是一致的，并且展示了如何执行交叉熵损失的计算。
+
+#### outputs 与 labels 形状的匹配
+
+在代码中，`outputs` 的形状是 `[64, 10]`，表示每个批次有 64 个样本，每个样本有 10 个类别的预测分数。`labels` 的形状是 `[64]`，表示每个样本的真实类别索引。
+
+`CrossEntropyLoss` 不需要 `labels` 是 one-hot 编码的形式，它只需要类别的索引。因此，尽管 `outputs` 和 `labels` 的第二维大小不同，但 `CrossEntropyLoss` 会自动处理，只考虑 `outputs` 中对应 `labels` 索引的 logits 来计算损失。
+
+#### 训练神经网络的通用步骤
+
+训练神经网络的四个基本步骤如下：
+
+1. **前向传播**：通过模型传递数据以获得预测输出。
+2. **计算损失**：使用损失函数比较预测输出和真实标签，计算损失值。
+3. **反向传播**：通过损失函数反向传递损失，计算每个参数的梯度。
+4. **优化步骤**：使用优化器（如 SGD）根据计算的梯度更新模型的参数。`optimizer.step()` 实际上执行了这一步。虽然梯度下降是最常见的优化方法之一，但 `optimizer.step()` 可以执行更复杂的优化算法，如 SGD 的变体（带动量的 SGD）、Adam 或 RMSprop 等，这些算法可能包括梯度的平滑、自适应学习率等。
+
+#### 打乱顺序的多轮训练
+
+在 PyTorch 的 `DataLoader` 中设置 `shuffle=True` 意味着在每个训练时代（epoch）开始时，训练数据集的样本顺序会被打乱。这样做有几个好处：
+
+1. **防止过拟合**：如果每次迭代都使用相同的样本顺序，模型可能会对特定的样本顺序产生依赖，这可能会导致模型学习到数据中的噪声。打乱顺序有助于防止模型对训练数据的特定顺序过度拟合。
+
+2. **提高泛化能力**：随机化样本顺序有助于模型学习更加普遍的特征，这通常可以提高模型在未见过的数据上的表现，即提高泛化能力。
+
+3. **优化收敛**：在一些情况下，如果训练样本有特定的顺序（例如，按类别排序），这可能会导致梯度下降过程陷入局部最小点。打乱顺序可以帮助优化算法更好地探索参数空间。
+
+#### 测试集评估
+
+**将模型设置为评估模式**：
+
+1. ```python
+   model.eval()
+   ```
+   这一步通过调用 `eval()` 函数将模型设置为评估模式。在评估模式下，某些特定于训练阶段的层（如 Dropout 和 BatchNorm）将调整其行为。例如，Dropout 将不再丢弃任何单元，BatchNorm 将使用在训练过程中学习的运行平均值和方差。
+   
+2. **关闭梯度计算**：
+   ```python
+   with torch.no_grad():
+   ```
+   使用 `torch.no_grad()` 上下文管理器禁用梯度计算。在测试过程中，我们不需要计算梯度，这可以减少内存使用并加速计算。
+
+3. **遍历测试数据集**：
+   ```python
+   for images, labels in test_loader:
+   ```
+   使用 `test_loader` 遍历测试数据集。`test_loader` 会按批次提供图像和对应的真实标签。
+
+![image-20240212165107294](C:\Users\86157\AppData\Roaming\Typora\typora-user-images\image-20240212165107294.png)
+
+1. **前向传播和预测**：
+   ```python
+   outputs = model(images)
+   _, predicted = torch.max(outputs.data, 1)
+   ```
+   对每个批次的图像进行**前向传播，得到模型的预测输出`outputs`**。
+   `torch.max` 返回两个值：
+
+   - 第一个值是每个样本中找到的最大概率值（在这个上下文中，我们通常不关心这个值）。
+   - 第二个值predicted是这些最大概率值所对应的索引，即预测的类别标签。在十类分类问题中，这些索引将是介于 0 到 9 之间的整数。
+
+   函数**沿维度 1（类别的维度）寻找最大值**。这意味着对于每个样本（64个中的每一个），它都会在这10个类别预测概率中找到最大的一个。
+   **`predicted`是一个[64]的向量。**
+
+2. **统计正确预测的数量**：
+
+   ```python
+   total += labels.size(0)
+   correct += (predicted == labels).sum().item()
+   ```
+   `total` 变量记录了总的样本数，而 `correct` 变量记录了正确预测的样本数。`predicted == labels` 创建了一个布尔数组，表示每个样本是否被正确分类，然后通过 `.sum().item()` 计算了正确分类的总数。
+
+3. **计算准确率**：
+   ```python
+   print(f'Accuracy of the model on the 10000 test images: {100 * correct / total}%')
+   ```
+   最后，计算并打印模型在整个测试集上的准确率。准确率是正确预测的数量除以总样本数。
+
+#### 准确率≈99%
+
+- 训练数据通过 `DataLoader` 加载时使用了 `shuffle=True`，这意味着在每个训练周期中，训练数据的顺序都会被打乱。这有助于提高模型的泛化能力，但也会导致每次训练的过程略有不同。
+- 另外，模型（随机）初始化和某些层也可能引入随机性。
+
+- 使用随机梯度下降（SGD）作为优化器，它在优化过程中会利用随机选取的小批量数据计算梯度，这也可能导致训练过程中的随机性。
+
+
+
