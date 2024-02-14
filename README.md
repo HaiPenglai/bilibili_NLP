@@ -707,6 +707,18 @@ PyTorch 提供的张量运算不仅限于基本的算术运算，还包括更多
 在 PyTorch 中，`torch.std()` 和 `torch.var()` 默认计算的是样本标准差和样本方差，而不是总体标准差和总体方差。样本标准差和样本方差在计算时使用的是 Bessel's correction（贝塞尔校正），即分母使用 `n-1` 而不是 `n`.
 ![image-20240206102905942](C:\Users\86157\AppData\Roaming\Typora\typora-user-images\image-20240206102905942.png)
 
+在 PyTorch 中，`torch.var()` 函数用于计算张量的方差。该函数有一个参数 `unbiased`，其作用是决定计算方差时是否使用无偏估计（Bessel's correction）。`unbiased` 参数的默认值是 `True`。
+
+当 `unbiased=True` 时，`torch.var()` 使用无偏估计来计算方差，公式如下：
+$$ \text{Var}(x) = \frac{1}{N - 1} \sum_{i=1}^{N} (x_i - \bar{x})^2 $$
+这里，$ N $ 是样本数量，$ x_i $ 是单个样本值，$ \bar{x} $ 是样本均值。注意**分母是 $ N - 1 $**，这是 Bessel's correction，用于在有限样本情况下更准确地估计总体方差。
+
+当 `unbiased=False` 时，`torch.var()` 使用有偏估计来计算方差，公式如下：
+$$ \text{Var}(x) = \frac{1}{N} \sum_{i=1}^{N} (x_i - \bar{x})^2 $$
+在这种情况下，**分母是 $ N $**，这意味着它是基于样本本身的方差而非总体方差的估计。
+
+选择使用无偏估计还是有偏估计取决于你的具体应用和需要。在统计学中，当样本数量较少时，无偏估计通常被认为是更准确的，因为它修正了由于样本数量有限而导致的估计偏差。然而，在深度学习和其他计算密集型任务中，有时会选择有偏估计，因为它在计算上更简单且对于大数据集来说差异通常很小。
+
 #### 在指定维度进行统计(求softmax的时候很有用)
 
 当我们在PyTorch中使用`torch.sum()`函数时，通过指定`dim`参数可以沿着指定的维度对张量进行求和。下面是一个具体的示例，说明如何沿着某个维度对张量进行求和：
@@ -765,7 +777,55 @@ tensor([[[ 5,  7,  9]],
         [[17, 19, 21]]])
 ```
 
+#### 更复杂的指定维度进行统计的例子:
 
+```python
+import torch
+import torch.nn as nn
+input_tensor = torch.tensor([[[[1, 2, 3, 4],
+                               [5, 6, 7, 8],
+                               [9, 10, 11, 12],
+                               [13, 14, 15, 16]],
+
+                              [[17, 18, 19, 20],
+                               [21, 22, 23, 24],
+                               [25, 26, 27, 28],
+                               [29, 30, 31, 32]],
+
+                              [[33, 34, 35, 36],
+                               [37, 38, 39, 40],
+                               [41, 42, 43, 44],
+                               [45, 46, 47, 48]]],
+
+
+                             [[[49, 50, 51, 52],
+                               [53, 54, 55, 56],
+                               [57, 58, 59, 60],
+                               [61, 62, 63, 64]],
+
+                              [[65, 66, 67, 68],
+                               [69, 70, 71, 72],
+                               [73, 74, 75, 76],
+                               [77, 78, 79, 80]],
+
+                              [[81, 82, 83, 84],
+                               [85, 86, 87, 88],
+                               [89, 90, 91, 92],
+                               [93, 94, 95, 96]]]]).float()
+
+mean = input_tensor.mean([0, 2, 3])
+print(mean)
+'''tensor([32.5000, 48.5000, 64.5000])'''
+
+```
+
+![image-20240213192448294](C:\Users\86157\AppData\Roaming\Typora\typora-user-images\image-20240213192448294.png)
+
+在第3个维度压缩, 我们就应该把所有的在第3个维度坐标相同的数值加在一起,而第3个维度坐标相同的数的组合例如[1, 2, 3, 4]，[81, 82, 83, 84]。
+ 在第2个维度压缩。 我们就应该把所有的在第2个维度坐标相同的数值加在一起，而第2个维度坐标相同的数的组合例如[1, 5, 9, 13],[49,53,57,61] 得到的结果形如:[[,,],[,,]]
+最后把所有的在第0个维度坐标相同的数值加在一起，最终结果就形如[,,]
+
+大概理解一下即可。
 
 #### 形状和布局变换
 
@@ -2439,6 +2499,48 @@ print(input>=0)#之前说过，这是一个bool型张量
 ```
 
 这些激活函数在深度学习中经常被使用，并且在PyTorch中都有相应的实现。通过在神经网络中选择合适的激活函数，可以提高模型的表达能力和性能。
+#### 归一化BatchNorm2d
+
+![image-20240214132546918](C:\Users\86157\AppData\Roaming\Typora\typora-user-images\image-20240214132546918.png)
+
+```python
+import torch
+import torch.nn as nn
+
+# 定义手动实现的批量归一化函数
+def manual_batchnorm(input_tensor, eps=1e-5):
+    # 计算每个通道的均值和方差
+    mean = input_tensor.mean([0, 2, 3], keepdim=True)
+    var = input_tensor.var([0, 2, 3], keepdim=True, unbiased=False)
+    print(mean)
+    print(var)
+
+    # 归一化
+    normalized_tensor = (input_tensor - mean) / torch.sqrt(var + eps)
+    return normalized_tensor
+
+# 创建输入张量
+input_tensor = torch.randn(2, 3, 4, 4)
+
+# 使用 PyTorch 内置的批量归一化
+batchnorm = nn.BatchNorm2d(3, eps=1e-5, momentum=0, affine=False)
+output = batchnorm(input_tensor)
+
+# 使用手动实现的批量归一化
+manual_output = manual_batchnorm(input_tensor)
+
+# 比较两种方法的输出
+print("PyTorch BatchNorm2d Output:")
+print(output)
+print("\nManual BatchNorm Output:")
+print(manual_output)
+
+```
+
+注:目标是对每个通道的数据进行独立的归一化处理，为了做到这一点，我们需要在除了通道维度（第二维，索引为 1）之外的所有维度上进行计算。
+加上一个很小的数 `eps` 以避免除以零的情况。
+
+
 
 ### pytorch构建神经网络：线性回归
 
@@ -3252,7 +3354,7 @@ for epoch in range(num_epochs):
 
 在这个网络中，卷积层负责提取图像的特征，池化层负责减少特征的空间尺寸（降维），而全连接层负责将这些特征映射到最终的分类结果。
 
-##### One-hot 编码
+#### One-hot 编码
 
 对于多分类问题，one-hot 编码是一种将类别标签转换为二进制（0和1）形式的方法。每个标签转换为一个与类别数量相等长度的向量，其中真实类别对应的元素设为 1，其余设为 0。
 
@@ -3406,4 +3508,143 @@ print(log_softmax_lib, nll_loss_lib, cross_entropy_loss_lib)
 - 使用随机梯度下降（SGD）作为优化器，它在优化过程中会利用随机选取的小批量数据计算梯度，这也可能导致训练过程中的随机性。
 
 
+
+#### 卷积神经网络-图像分类
+
+一个使用 CIFAR-10 数据集的卷积神经网络（CNN）例子。CIFAR-10 数据集包含 60000 张 32x32 像素的**彩色图像，分为 10 个类别**，每个类别有 6000 张图像。数据集被分为 50000 张训练图像和 10000 张测试图像。
+
+以下是使用 PyTorch 实现的一个简单的 CNN 来处理 CIFAR-10 数据集的例子。这个网络会稍微复杂一些，以适应 CIFAR-10 数据集的复杂性。
+
+```python
+import torch
+import torch.nn as nn
+import torch.optim as optim
+import torchvision
+import torchvision.transforms as transforms
+from torch.utils.data import DataLoader
+
+# 定义 CNN 模型
+class ConvNet(nn.Module):
+    def __init__(self):
+        super(ConvNet, self).__init__()
+        self.layer1 = nn.Sequential(
+            nn.Conv2d(3, 32, kernel_size=3, padding=1),
+            nn.BatchNorm2d(32),
+            nn.ReLU(),
+            nn.MaxPool2d(kernel_size=2, stride=2))
+        self.layer2 = nn.Sequential(
+            nn.Conv2d(32, 64, kernel_size=3, padding=1),
+            nn.BatchNorm2d(64),
+            nn.ReLU(),
+            nn.MaxPool2d(kernel_size=2, stride=2))
+        self.fc1 = nn.Linear(64 * 8 * 8, 1000)
+        self.fc2 = nn.Linear(1000, 10)
+
+    def forward(self, x):
+        out = self.layer1(x)
+        out = self.layer2(out)
+        out = torch.flatten(out, 1)
+        out = torch.relu(self.fc1(out))
+        out = self.fc2(out)
+        return out
+
+# 数据预处理
+transform = transforms.Compose([
+    transforms.ToTensor(),
+    transforms.Normalize((0.5, 0.5, 0.5), (0.5, 0.5, 0.5))])
+
+# 加载 CIFAR-10 数据集
+train_dataset = torchvision.datasets.CIFAR10(root='./data', train=True, download=True, transform=transform)
+test_dataset = torchvision.datasets.CIFAR10(root='./data', train=False, download=True, transform=transform)
+
+train_loader = DataLoader(dataset=train_dataset, batch_size=64, shuffle=True)
+test_loader = DataLoader(dataset=test_dataset, batch_size=64, shuffle=False)
+
+# 实例化模型、定义损失函数和优化器
+model = ConvNet()
+criterion = nn.CrossEntropyLoss()
+optimizer = optim.SGD(model.parameters(), lr=0.01, momentum=0.9)
+
+# 训练模型
+num_epochs = 5
+for epoch in range(num_epochs):
+    for i, (images, labels) in enumerate(train_loader):
+        outputs = model(images)
+        loss = criterion(outputs, labels)
+        optimizer.zero_grad()
+        loss.backward()
+        optimizer.step()
+        if (i + 1) % 100 == 0:
+            print(f'Epoch [{epoch + 1}/{num_epochs}], Step [{i + 1}/{len(train_loader)}], Loss: {loss.item():.4f}')
+
+# 测试模型
+model.eval()
+with torch.no_grad():
+    correct = 0
+    total = 0
+    for images, labels in test_loader:
+        outputs = model(images)
+        _, predicted = torch.max(outputs.data, 1)
+        total += labels.size(0)
+        correct += (predicted == labels).sum().item()
+
+print(f'Accuracy of the model on the 10000 test images: {100 * correct / total}%')
+```
+
+这个例子中，网络架构包含两个卷积层，每个卷积层后面跟着批量归一化层（BatchNorm2d）、ReLU激活函数和最大池化层（MaxPool2d）。接着是两个全连接层。这个网络比之前的 MNIST 网络更复杂，以适应 CIFAR-10 数据集的更高复杂度。训练和测试的步骤与之前的例子相似，但需要注意的是，CIFAR-10 的图像是彩色的，所以第一个卷积层的输入通道数是 3（代表 RGB 三个颜色通道）。
+
+#### 加载数据集
+
+![image-20240213132249452](C:\Users\86157\AppData\Roaming\Typora\typora-user-images\image-20240213132249452.png)
+
+![image-20240213132407826](C:\Users\86157\AppData\Roaming\Typora\typora-user-images\image-20240213132407826.png)
+
+1. **数据转换（transforms）**：
+   - 对于 **CIFAR-10** 数据集，使用的是三个通道的归一化，因为 CIFAR-10 是彩色图像（包含 RGB 三个通道）。`transforms.Normalize((0.5, 0.5, 0.5), (0.5, 0.5, 0.5))` 用于将每个通道的像素值标准化，使其大致分布在 [-1, 1] 的范围内。
+   - 对于 **MNIST** 数据集，由于它是灰度图像（只有一个通道），因此使用的是单通道的归一化。
+
+其他代码相同，不再介绍。
+
+#### 网络结构和张量分析
+
+这个CNN 架构中，网络包括两个卷积层、两个池化层和两个全连接层。让我们逐层分析其结构及输出的张量形状：
+![image-20240214204534601](C:\Users\86157\AppData\Roaming\Typora\typora-user-images\image-20240214204534601.png)
+
+1. **输入图像**：
+   - 形状：`[64, 3, 32, 32]`
+   - 解释：批量大小为 64，每个图像有 3 个颜色通道（RGB），图像尺寸为 32x32 像素。
+
+2. **第一层（layer1）**：
+   - 结构：Conv2d -> BatchNorm2d -> ReLU -> MaxPool2d
+   - `Conv2d(3, 32, kernel_size=3, padding=1)`：从 3 通道到 32 通道的卷积，核大小为 3x3，边缘填充为 1。这保持了图像的空间尺寸不变（32x32）。
+   - `BatchNorm2d(32)`：批量归一化，作用于 32 个输出通道。
+   - `ReLU`：激活函数。
+   - `MaxPool2d(kernel_size=2, stride=2)`：2x2 的最大池化，减半图像尺寸。
+   - 输出形状：`[64, 32, 16, 16]`（批量大小，通道数，高度，宽度）
+
+![image-20240214204657429](C:\Users\86157\AppData\Roaming\Typora\typora-user-images\image-20240214204657429.png)
+
+1. **第二层（layer2）**：
+   - 结构：Conv2d -> BatchNorm2d -> ReLU -> MaxPool2d
+   - `Conv2d(32, 64, kernel_size=3, padding=1)`：从 32 通道到 64 通道的卷积，核大小为 3x3，边缘填充为 1。这保持了图像的空间尺寸不变（16x16）。
+   - `BatchNorm2d(64)`：批量归一化，作用于 64 个输出通道。
+   - `ReLU`：激活函数。
+   - `MaxPool2d(kernel_size=2, stride=2)`：2x2 的最大池化，减半图像尺寸。
+   - 输出形状：`[64, 64, 8, 8]`
+
+![image-20240214205000261](C:\Users\86157\AppData\Roaming\Typora\typora-user-images\image-20240214205000261.png)
+
+1. **展平操作**：
+   - 将每个批次中的图像从三维（通道、高度、宽度）展平为一维。
+   - 输出形状：`[64, 64*8*8]` 或 `[64, 4096]`
+
+2. **第一个全连接层（fc1）**：
+   - `Linear(64 * 8 * 8, 1000)`：将 4096 维的输入连接到 1000 个神经元上。
+   - 输出形状：`[64, 1000]`
+
+3. **第二个全连接层（fc2）**：
+   - `Linear(1000, 10)`：将 1000 维的输入连接到 10 个输出神经元上，对应于 CIFAR-10 的 10 个类别。
+   - 输出形状：`[64, 10]`
+
+#### 训练和测试和之前手写数字识别一样，不再赘述
 
