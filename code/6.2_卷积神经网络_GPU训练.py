@@ -5,6 +5,10 @@ import torchvision
 import torchvision.transforms as transforms
 from torch.utils.data import DataLoader
 
+# 检查是否有可用的 CUDA
+device = torch.device("cuda:0" if torch.cuda.is_available() else "cpu")
+print(device)
+
 # 定义 CNN 模型
 class ConvNet(nn.Module):
     def __init__(self):
@@ -43,7 +47,7 @@ train_loader = DataLoader(dataset=train_dataset, batch_size=64, shuffle=True)
 test_loader = DataLoader(dataset=test_dataset, batch_size=64, shuffle=False)
 
 # 实例化模型、定义损失函数和优化器
-model = ConvNet()
+model = ConvNet().to(device)
 criterion = nn.CrossEntropyLoss()
 optimizer = optim.SGD(model.parameters(), lr=0.01, momentum=0.9)
 
@@ -53,6 +57,7 @@ for epoch in range(num_epochs):
     for i, (images, labels) in enumerate(train_loader):
         #print(images.size(),labels.size())
         ''''''
+        images, labels = images.to(device), labels.to(device)
         outputs = model(images)
         loss = criterion(outputs, labels)
         optimizer.zero_grad()
@@ -67,6 +72,7 @@ with torch.no_grad():
     correct = 0
     total = 0
     for images, labels in test_loader:
+        images, labels = images.to(device), labels.to(device)
         outputs = model(images)
         _, predicted = torch.max(outputs.data, 1)
         total += labels.size(0)

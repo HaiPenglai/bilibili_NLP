@@ -3128,6 +3128,188 @@ $$ \hat{y} = w_1x_1 + w_2x_2 + b $$
 
 **就和中学时的线性回归`y=kx+b`是拟合一条直线一样。**
 
+
+#### 经典案例:波士顿房价预测
+
+当然可以。让我们使用 PyTorch 来实现一个基于多元线性回归的简单神经网络。我们将使用一个常见的公开数据集，比如波士顿房价数据集（Boston Housing Dataset），这个数据集包含了波士顿地区的房屋价格及其相关的统计数据。
+
+多元线性回归模型的目标是学习输入特征（如犯罪率、房产税率等）与目标值（房价）之间的线性关系。
+
+首先，我们需要安装并导入必要的库：
+
+```python
+import torch
+import torch.nn as nn
+import torch.optim as optim
+from sklearn.datasets import load_boston
+from sklearn.model_selection import train_test_split
+from sklearn.preprocessing import StandardScaler
+```
+
+然后，加载和预处理数据：
+
+```python
+# 加载波士顿房价数据
+boston = load_boston()
+X, y = boston.data, boston.target
+
+# 分割数据为训练集和测试集
+X_train, X_test, y_train, y_test = train_test_split(X, y, test_size=0.2, random_state=42)#指定测试集占数据集的比例为0.2,设置一个随机种子以确保结果的可重复性
+
+# 数据标准化
+scaler = StandardScaler()
+X_train = scaler.fit_transform(X_train)
+X_test = scaler.transform(X_test)
+
+# 转换为 torch tensors
+X_train = torch.tensor(X_train, dtype=torch.float32)
+y_train = torch.tensor(y_train, dtype=torch.float32)
+X_test = torch.tensor(X_test, dtype=torch.float32)
+y_test = torch.tensor(y_test, dtype=torch.float32)
+```
+
+接着，定义一个简单的多元线性回归模型：
+
+```python
+class LinearRegressionModel(nn.Module):
+    def __init__(self, n_features):
+        super(LinearRegressionModel, self).__init__()
+        self.linear = nn.Linear(n_features, 1)
+
+    def forward(self, x):
+        return self.linear(x)
+
+model = LinearRegressionModel(X_train.shape[1])
+```
+
+然后，设置损失函数和优化器：
+
+```python
+criterion = nn.MSELoss()
+optimizer = optim.SGD(model.parameters(), lr=0.001)
+```
+
+训练模型：
+
+```python
+num_epochs = 1000
+for epoch in range(num_epochs):
+    # 前向传播
+    outputs = model(X_train)
+    loss = criterion(outputs.squeeze(), y_train)
+
+    # 后向传播和优化
+    optimizer.zero_grad()
+    loss.backward()
+    optimizer.step()
+
+    if (epoch+1) % 100 == 0:
+        print(f'Epoch [{epoch+1}/{num_epochs}], Loss: {loss.item():.4f}')
+```
+
+最后，评估模型性能：
+
+```python
+model.eval()
+with torch.no_grad():
+    predictions = model(X_test).squeeze()
+    test_loss = criterion(predictions, y_test)
+    print(f'Test Loss: {test_loss.item():.4f}')
+```
+
+可能会有警告:
+`load_boston函数已被弃用，将在未来的 scikit-learn 版本中被移除。原因是这个数据集涉及一些伦理问题，尤其是与社会经济地位和种族歧视相关的变量。`
+
+#### 数据集
+
+波士顿房价数据集（Boston Housing Dataset）是一个著名的数据集，常用于回归分析和机器学习的入门任务。这个数据集由美国人口普查服务局收集的数据构成，包含了波士顿地区的房价中位数和与之相关的统计数据。
+用下面的代码可以查看到数据集描述:
+
+```python
+from sklearn.datasets import load_boston
+boston = load_boston()
+print(boston.DESCR)
+```
+
+数据集中的每个样本包含以下特征：
+
+1. **CRIM**: 城镇人均犯罪率。
+2. **ZN**: 住宅用地超过 25,000 平方英尺的比例。
+3. **INDUS**: 城镇非零售商业用地的比例。
+4. **CHAS**: 查尔斯河虚拟变量（如果是河流边界，则为1；否则为0）。
+5. **NOX**: 一氧化氮浓度。
+6. **RM**: 住宅平均房间数。
+7. **AGE**: 1940 年以前建成的自用房屋比例。
+8. **DIS**: 与五个波士顿就业中心的加权距离。
+9. **RAD**: 辐射状公路的可达性指数。
+10. **TAX**: 每 10,000 美元的全值财产税率。
+11. **PTRATIO**: 城镇师生比例。
+12. **B**: 1000(Bk - 0.63)^2，其中 Bk 是城镇中黑人居民的比例。
+13. **LSTAT**: 低收入人群的比例。
+
+目标变量（`y`）是房屋的中位数价格（单位：千美元）。
+
+**数据形状分析**
+
+- `X_train` 和 `X_test` 的形状分别为 `(404, 13)` 和 `(102, 13)`。这表示训练集有 404 个样本，测试集有 102 个样本，每个样本有 13 个特征。
+- `y_train` 和 `y_test` 的形状分别为 `(404,)` 和 `(102,)`。这表示训练集和测试集的目标变量是一维数组，与样本数量相对应。
+
+#### 数据预处理
+
+**数据标准化**过程中，每个特征的数据会经历以下变换：
+
+1. **减去平均值**: 从每个特征的值中减去该特征的平均值。[对形状为 `(404, 13)` 的 `X_train` 进行标准化时，每个特征列（13个特征，每列代表一个特征）的每个元素都会减去该列的平均值。]
+2. **除以标准差**: 将上一步的结果除以该特征的标准差。
+
+数学上，标准化可以表示为：
+
+$$ z = \frac{(x - \mu)}{\sigma}$$
+
+其中 $ x $ 是原始值，$ \mu $ 是平均值，$ \sigma $ 是标准差，$ z $ 是标准化后的值。
+
+这样做的目的是为了确保所有特征在模型训练中具有相同的规模和重要性(有的特征天生数值大，有的数值天生数值小)。如果特征的规模差异很大，那么在梯度下降等算法中，规模较大的特征可能会对模型训练产生不成比例的影响。
+将数据从 **NumPy 数组转换为 PyTorch 张量（tensors）**。这是因为 PyTorch 用张量来表示数据，这些张量支持 GPU 加速等高效的计算操作。
+
+**精度**: `float32` 是一种平衡了计算效率和精度的数据类型。对于大多数深度学习任务，`float32` 提供的精度已经足够。
+
+#### 设计神经网络
+
+不再赘述，和之前完全一样,继承自nn，输入13个特征，输出1个特征的网络。
+#### 定义损失函数
+
+不再赘述,经典MSELoss均方误差损失函数
+#### 训练
+
+不再赘述,迭代一千次，每次四个步骤:用训练数据进行预测，和实际值对比计算损失，计算损失对权重的梯度，梯度下降。其中记得zero_grad()保证梯度正确计算，每迭代100次输出预测误差。
+#### 评估
+
+1. **设置模型为评估模式 (`model.eval()`)**:
+    - 这一步通过调用 `eval()` 方法将模型设置为评估模式。
+    - 在评估模式下，所有专门针对训练过程的操作（如 dropout 和批量归一化）会被禁用。
+    - 这是因为在评估模型时，我们希望模型表现出其已学习的固定模式，而非继续学习或调整。
+
+2. **禁用梯度计算 (`with torch.no_grad():`)**:
+    - `torch.no_grad()` 语句用于暂时禁用梯度计算。
+    - 在评估模型时，不需要计算梯度，这可以减少内存消耗并提高计算速度。
+    - 这是因为评估阶段不涉及模型参数的更新。
+
+3. **进行预测 (`predictions = model(X_test).squeeze()`)**:
+    
+    - 模型使用测试数据 (`X_test`) 进行预测。
+    - `squeeze()` 方法去除可能存在的多余维度，使得 `predictions` 的维度与 `y_test` 一致。
+    
+      ```python
+      print(predictions.size(),y_test.size(),predictions, y_test)
+      '''torch.Size([102]) torch.Size([102])'''
+      ```
+    
+4. **计算测试损失 (`test_loss = criterion(predictions, y_test)`)**:
+    - 用均方误差计算损失。
+    
+    $$ \text{MSE} = \frac{1}{n} \sum_{i=1}^{n} (y_i - \hat{y}_i)^2 $$
+    
+    MSE 作为损失函数的一个重要特性是，它会对较大的误差赋予更高的惩罚（由于平方项的影响），这有助于模型更加关注和减少大的预测误差。
+
 ### 卷积神经网络
 
 ![image-20240211193727742](C:\Users\86157\AppData\Roaming\Typora\typora-user-images\image-20240211193727742.png)
@@ -3507,7 +3689,63 @@ print(log_softmax_lib, nll_loss_lib, cross_entropy_loss_lib)
 
 - 使用随机梯度下降（SGD）作为优化器，它在优化过程中会利用随机选取的小批量数据计算梯度，这也可能导致训练过程中的随机性。
 
+#### 使用GPU训练
 
+![image-20240215131645659](C:\Users\86157\AppData\Roaming\Typora\typora-user-images\image-20240215131645659.png)
+
+刚才的代码cpu跑满，但是gpu没有使用。
+
+```python
+# 引入必要的库
+
+# 检查是否有可用的 CUDA
+device = torch.device("cuda:0" if torch.cuda.is_available() else "cpu")
+print(device)
+'''cuda:0'''
+
+# 定义 CNN 模型
+class ConvNet(nn.Module):
+    # ...
+
+# 数据预处理、加载 CIFAR-10 数据集
+# ...
+
+# 实例化模型、定义损失函数和优化器
+model = ConvNet().to(device)  # 将模型移到 GPU
+criterion = nn.CrossEntropyLoss()
+optimizer = optim.SGD(model.parameters(), lr=0.01, momentum=0.9)
+
+# 训练模型
+num_epochs = 5
+for epoch in range(num_epochs):
+    for i, (images, labels) in enumerate(train_loader):
+        images, labels = images.to(device), labels.to(device)  # 将数据移到 GPU
+        outputs = model(images)
+        loss = criterion(outputs, labels)
+        optimizer.zero_grad()
+        loss.backward()
+        optimizer.step()
+        # ...
+
+# 测试模型
+model.eval()
+with torch.no_grad():
+    correct = 0
+    total = 0
+    for images, labels in test_loader:
+        images, labels = images.to(device), labels.to(device)  # 将数据移到 GPU
+        outputs = model(images)
+        _, predicted = torch.max(outputs.data, 1)
+        total += labels.size(0)
+        correct += (predicted == labels).sum().item()
+        # ...
+
+print(f'Accuracy of the model on the 10000 test images: {100 * correct / total}%')
+
+```
+
+占用GPU，速度提升了非常多倍
+![image-20240215131918457](C:\Users\86157\AppData\Roaming\Typora\typora-user-images\image-20240215131918457.png)
 
 #### 卷积神经网络-图像分类
 
@@ -3646,5 +3884,45 @@ print(f'Accuracy of the model on the 10000 test images: {100 * correct / total}%
    - `Linear(1000, 10)`：将 1000 维的输入连接到 10 个输出神经元上，对应于 CIFAR-10 的 10 个类别。
    - 输出形状：`[64, 10]`
 
-#### 训练和测试和之前手写数字识别一样，不再赘述
+**训练和测试和之前手写数字识别一样，不再赘述**
+
+### NLP初步
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
 
