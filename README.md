@@ -3294,7 +3294,7 @@ $$ z = \frac{(x - \mu)}{\sigma}$$
     - 这是因为评估阶段不涉及模型参数的更新。
 
 3. **进行预测 (`predictions = model(X_test).squeeze()`)**:
-    
+   
     - 模型使用测试数据 (`X_test`) 进行预测。
     - `squeeze()` 方法去除可能存在的多余维度，使得 `predictions` 的维度与 `y_test` 一致。
     
@@ -3888,41 +3888,232 @@ print(f'Accuracy of the model on the 10000 test images: {100 * correct / total}%
 
 ### NLP初步
 
+#### 中文分词工具
 
+`jieba` 是一个非常流行的中文分词库，广泛用于中文自然语言处理。它支持三种分词模式：精确模式、全模式和搜索引擎模式，并且可以处理简体和繁体中文。以下是关于 `jieba` 的一些基本信息和使用方法：
 
+#### 安装
 
+在使用 `jieba` 之前，需要先进行安装，可以通过 pip 安装：
+```bash
+pip install jieba
+```
 
+**指令在哪里输入**
 
+可以直接在pycharm的终端输入，如果打不开终端可以搜索Anaconda Prompt,之后输入即可。
+![image-20240215185210227](C:\Users\86157\AppData\Roaming\Typora\typora-user-images\image-20240215185210227.png)
 
+![image-20240215185242600](C:\Users\86157\AppData\Roaming\Typora\typora-user-images\image-20240215185242600.png)
 
+#### 基本用法
 
+1. **精确模式**：这种模式下，`jieba` 尝试将句子最精确地切开，适合文本分析。
 
+   ```python
+   import jieba
 
+   seg_list = jieba.cut("jieba是一个非常流行的中文分词库广泛用于中文自然语言处理", cut_all=False)
+   print("精确模式: " + "/ ".join(seg_list))
+   ```
 
+2. **全模式**：在这种模式下，`jieba` 会将句子中所有可能的词语都扫描出来，速度非常快，但不适合文本分析。
 
+   ```python
+   seg_list = jieba.cut("jieba是一个非常流行的中文分词库广泛用于中文自然语言处理", cut_all=True)
+   print("全模式: " + "/ ".join(seg_list))
+   ```
 
+3. **搜索引擎模式**：在这种模式下，`jieba` 会对长词再次切分，提高召回率，适用于搜索引擎构建索引。
 
+   ```python
+   seg_list = jieba.cut_for_search("jieba是一个非常流行的中文分词库广泛用于中文自然语言处理")
+   print("搜索引擎模式: " + "/ ".join(seg_list))
+   ```
 
+#### 繁体分词
 
+`jieba` 同样支持繁体中文的分词。它的分词算法和词典是针对简体中文优化的，但对于繁体中文，表现也相当不错。使用方法与简体中文相同：
 
+```python
+seg_list = jieba.cut("jieba是壹個非常流行的中文分詞庫廣泛用于中文自然語言處理", cut_all=False)
+print("精确模式: " + "/ ".join(seg_list))
+```
 
+#### 自定义词典
 
+`jieba` 允许用户添加自定义词典，以适应特定领域的分词需要。这对于一些特殊名词或者新词尤其有用。
 
+```python
+jieba.load_userdict("./data/Tokenization/userdict.txt")
+```
 
+其中 `userdict.txt` 是一个自定义词典文件，其内容格式如下：
 
+```
+词语 词频 词性(可选)
+```
 
+例如：
 
+```python
+分词库 1000 n
+```
 
+#### HanLP
 
+**安装 HanLP**
 
+HanLP 是一款由自然语言处理专家开发的多语言处理库，支持多种语言，包括中文和英文。要在 Python 中安装 HanLP，您可以按照以下步骤操作：
 
+1. **安装库**:
+   使用 pip 命令安装 HanLP。在命令行（例如 Anaconda Prompt 或系统的命令行界面）中输入以下命令：
 
+   ```bash
+   pip install hanlp
+   ```
 
+![image-20240219111459365](C:\Users\86157\AppData\Roaming\Typora\typora-user-images\image-20240219111459365.png)
 
+1. **检查环境**:
+   确保您的 Python 环境中安装了 Java 运行时环境（JRE），因为 HanLP 的某些功能依赖于 Java。您可以在命令行中运行 `java -version` 来检查是否安装了 Java。
+   ![image-20240219111529561](C:\Users\86157\AppData\Roaming\Typora\typora-user-images\image-20240219111529561.png)
 
+使用 HanLP 进行中英文分词
 
+安装完成后，您可以使用 HanLP 进行中英文分词。以下是一个简单的示例：
 
+```python
+import hanlp
 
+# 初始化分词器
+tokenizer = hanlp.load(hanlp.pretrained.tok.COARSE_ELECTRA_SMALL_ZH)
+
+# 中文分词
+text_cn = "今天天气真好，我们一起去公园散步吧。"
+tokens_cn = tokenizer(text_cn)
+print("中文分词:", tokens_cn)
+
+# 英文分词
+text_en = "Today is a good day, let's go to the park for a walk."
+tokens_en = tokenizer(text_en)
+print("英文分词:", tokens_en)
+
+'''
+中文分词: ['今天', '天气', '真', '好', '，', '我们', '一起', '去', '公园', '散步', '吧', '。']
+英文分词: ['Today', 'is', 'a', 'good', 'day', ',', "let's", 'go', 'to', 'the', 'park', 'for', 'a', 'walk', '.']
+'''
+```
+
+附录：
+如果下载出错，可以尝试手动下载模型文件到指定的路径。访问提供的 URL类似于 (`http://download.hanlp.com/tok/coarse_electra_small_20220616_012050.zip`)，手动下载 zip 文件。将下载的文件解压到指定的目录（例如 `C:\Users\86157\AppData\Roaming\hanlp\tok`）。
+
+#### 命名实体识别[略]
+
+使用 HanLP 进行中文命名实体识别（NER，Named Entity Recognition）也是相对直接的。**命名实体识别是指识别文本中具有特定意义的实体，如人名、地名、机构名等**。以下是使用 HanLP 进行中文命名实体识别的基本步骤：
+
+步骤 1：安装并导入 HanLP
+
+如果您还没有安装 HanLP，可以通过 pip 进行安装，这里可能环境依赖难以解决，可以用：
+```bash
+pip install hanlp[full] -U
+```
+
+然后在您的 Python 脚本中导入 HanLP：
+```python
+import hanlp
+```
+
+步骤 2：加载预训练的命名实体识别模型
+
+HanLP 提供了多种预训练模型，包括用于命名实体识别的模型。您可以加载适用于您需求的模型。例如，加载一个通用的中文 NER 模型：
+```python
+# 这里选择一个适用的预训练模型
+recognizer = hanlp.load(hanlp.pretrained.ner.MSRA_NER_BERT_BASE_ZH)
+```
+
+步骤 3：使用模型进行命名实体识别
+
+使用加载的模型对中文文本进行命名实体识别：
+```python
+text = "汉克斯出生于加州的康科德市，他的父亲是厨师，母亲是医院工作者。"
+entities = recognizer(text)
+print(entities)
+```
+
+这将输出文本中识别的命名实体及其类别。
+
+结果类似于:
+```python
+[('汉克斯', '人名'), ('加州', '地名'), ('康科德市', '地名')]
+```
+
+#### 词性标注
+
+`jieba` 是一个广泛使用的中文分词工具，它也支持词性标注功能。词性标注是指为文本中的每个词分配一个词性（如名词、动词等）。以下是如何使用 `jieba` 进行中文词性标注的步骤：
+
+安装 `jieba`
+
+如果您还没有安装 `jieba`，可以通过 pip 来安装：
+```bash
+pip install jieba
+```
+
+使用 `jieba` 进行词性标注
+
+`jieba` 使用 `jieba.posseg` 模块来进行词性标注。以下是一个简单的示例：
+
+```python
+import jieba.posseg as pseg
+
+text = "词性标注是指为文本中的每个词分配一个词性"
+words = pseg.cut(text)
+
+for word, flag in words:
+    print(f'{word}/{flag}', end=' ')
+'''词性/n 标注/v 是/v 指为/v 文本/n 中/f 的/uj 每个/r 词/n 分配/vn 一个/m 词性/n '''
+```
+
+这段代码将对给定的文本进行分词和词性标注。**`pseg.cut` 函数返回一个迭代器，其中每个元素是一个 `pair` 对象，包含词语及其词性**。在上面的例子中，它会打印出每个词及其对应的词性。
+
+关于词性标注
+
+`jieba` 的词性标注是基于 `jieba` 自己的词性标注集来进行的，可能与其他标准略有不同。常见的词性包括：
+
+- `n`：名词
+- `v`：动词
+- `a`：形容词
+- `r`：代词
+- `ns` ：地名
+- `f`：方位名词
+- `uj`：助词（在 `jieba` 中，`uj` 通常用于表示结构助词“的”）
+- `vn`：名动词（动词性质的名词）
+- `m`：数量词
+
+#### hanlp词性标注[略]
+
+```python
+import hanlp
+tagger = hanlp.load(hanlp.pretrained.pos.CTB9_POS_ALBERT_BASE)
+text = "汉克斯出生于加州的康科德市，他的父亲是厨师，母亲是医院工作者。"
+pos_tags = tagger(text)
+print(pos_tags)
+```
+
+结果类似于:
+
+```python
+# Output: [('汉克斯', 'NR'), ('出生', 'VV'), ('于', 'P'), ('加州', 'NR'), ('的', 'DEG'), ('康科德', 'NR'), ('市', 'NN'), ('，', 'PU'), ('他', 'PN'), ('的', 'DEG'), ('父亲', 'NN'), ('是', 'VC'), ('厨师', 'NN'), ('，', 'PU'), ('母亲', 'NN'), ('是', 'VC'), ('医院', 'NN'), ('工作者', 'NN'), ('。', 'PU')]
+```
+
+- `NR`: 名词-专有名词（Proper Noun）
+- `VV`: 动词（Verb）
+- `P`: 介词（Preposition）
+- `DEG`: 关联词-的（Associative Particle）
+- `NN`: 名词（Noun）
+- `PU`: 标点符号（Punctuation）
+- `PN`: 代词（Pronoun）
+- `VC`: 动词-是（Verb-Copula）
 
 
 
