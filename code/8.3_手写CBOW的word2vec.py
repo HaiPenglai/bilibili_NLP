@@ -55,7 +55,7 @@ for epoch in range(100):
 
         # 步骤 3. 计算损失
         loss = loss_function(log_probs.view(1, -1), target.view(1))
-
+        '''view(1, -1) 将 log_probs 调整为一个形状为 (1, n) 的张量，其中 n 是 log_probs 中原始元素的数量，而 view(1) 将 target 调整为一个形状为 (1,) 的张量'''
         # 步骤 4. 反向传播并更新梯度
         optimizer.zero_grad()
         loss.backward()

@@ -3546,6 +3546,33 @@ for epoch in range(num_epochs):
 one-hot label: [1, 0, 0]
 ```
 
+#### Softmax的概率意义
+
+$softmax(xi) = \frac{e^{xi}}{\sum_{j} e^{xj}}$
+
+```python
+import torch
+
+# 假设我们有一个三类分类问题的 logits
+logits = torch.tensor([[2.0, 1.0, 0.1]])
+print(torch.softmax(logits, dim=1))
+'''tensor([[0.6590, 0.2424, 0.0986]])'''
+```
+
+解释 Softmax 输出
+
+- **softmax(logits, dim=1)**：这个函数将 `logits` 张量中的值转换为概率。`dim=1` 指定了 softmax 函数沿着张量的第二个维度（即每行内部）进行计算。
+
+- **输出的含义**：softmax 函数的输出是一个概率分布，它表示模型对每个类别的预测概率。在这个例子中，输出张量 `[[0.6590, 0.2424, 0.0986]]` 表示模型预测第一个类别的概率为约 65.9%，第二个类别的概率为约 24.24%，第三个类别的概率为约 9.86%。
+
+概率解释
+
+1. **第一个类别（65.9%）**：模型认为输入最有可能属于第一个类别。
+2. **第二个类别（24.24%）**：第二个类别是模型的次要选择。
+3. **第三个类别（9.86%）**：模型认为输入属于第三个类别的可能性最低。
+
+在多类分类问题中，softmax 函数确保输出的概率总和为 1，并且每个类别的概率都介于 0 到 1 之间。这使得 softmax 函数成为分类问题中常用的激活函数。在这种情况下，通常选择概率最高的类别作为模型的最终预测。
+
 #### 不稳定版本的 Log Softmax 计算
 
 ```python
@@ -3569,7 +3596,9 @@ print("Log Softmax (PyTorch):", torch.log_softmax(logits, dim=1))
 ![image-20240220125644611](C:\Users\86157\AppData\Roaming\Typora\typora-user-images\image-20240220125644611.png)
 这种方法在理论上是正确的，因为它遵循了 softmax 和 log 函数的直接定义。然而，由于在实际计算中可能遇到的数值问题，特别是当处理很大的 logits 值时，这种方法可能导致数值溢出（即结果变成无穷大）或数值下溢（即结果趋近于零)。在实践中，通常推荐使用数值稳定的版本,也就是下面的这一个版本。
 
-#### CrossEntropyLoss交叉熵损失
+#### CrossEntropyLoss交叉熵损失和负对数似然损失
+
+负对数似然损失NLL的英文全称是 "Negative Log Likelihood Loss"。这个损失函数在统计学和机器学习中广泛使用，尤其是在分类问题中。
 
 ```python
 import torch
@@ -3620,7 +3649,7 @@ print(log_softmax_lib, nll_loss_lib, cross_entropy_loss_lib)
 交叉熵损失是负对数似然损失，计算方法是取**目标类别对应的 LogSoftmax 值的负值**。在这个例子中，因为真实类别是第一个类别（索引为 0），我们只取第一个类别的 LogSoftmax 值并取其相反数得到 `nll_loss_manual`。
 
 手动计算的交叉熵损失值为 `0.4170`。
-原理:损失值是选中的 log 概率的相反数。因此，如果**模型对实际标签的预测概率高，损失值会低**（log 概率接近于 0，负数取反后趋近于 0）；反之，如果预测概率低，损失值会高。
+原理:损失值是选中的 log 概率的相反数。因此，如果**模型对实际标签的预测概率高(实际和预测一致)，损失值会低**（log 概率接近于 0，负数取反后趋近于 0）；反之，如果预测概率低，损失值会高。
 
 **库函数计算**
 
@@ -4471,7 +4500,7 @@ for epoch in range(100):
 
         # 步骤 3. 计算损失
         loss = loss_function(log_probs.view(1, -1), target.view(1))
-
+		'''view(1, -1) 将 log_probs 调整为一个形状为 (1, n) 的张量，而 view(1) 将 target 调整为一个形状为 (1,) 的张量'''
         # 步骤 4. 反向传播并更新梯度
         optimizer.zero_grad()
         loss.backward()
@@ -4518,7 +4547,13 @@ print(f"Predicted word: '{predicted_word}'")
 
 ##### 词向量接近性的测量方法
 
-词向量之间的接近性**通常**通过计算它们之间的**余弦相似度**来衡量。余弦相似度测量的是两个向量在方向上的相似程度，而不是在数值大小上的相似性。如果两个向量的方向非常接近，它们的余弦相似度接近于 1；如果它们的方向相反，则接近于 -1。
+词向量之间的接近性**通常**通过计算它们之间的**余弦相似度**来衡量。余弦相似度测量的是两个向量在方向上的相似程度，而不是在数值大小上的相似性。如果两个向量的方向非常接近，它们的余弦相似度接近于 1；如果它们的方向相反，则接近于 -1。词向量的余弦相似度计算公式
+
+余弦相似度衡量了两个向量在方向上的相似程度，**计算公式**如下：
+
+$$cosine\_similarity(A, B) = \frac{A \cdot B}{\|A\| \|B\|}$$
+
+其中 `A` 和 `B` 是两个向量，$A \cdot B$ 是它们的点积，`||A||` 和 `||B||` 是它们的欧几里得范数（即向量的长度）。
 
 ##### CBOW 模型的完形填空能力
 
@@ -4543,110 +4578,105 @@ print(f"Predicted word: '{predicted_word}'")
 - 输入："barks"，输出：["dog", "at"]
 - 输入："at"，输出：["barks", "night"]
 
-要在 PyTorch 环境下实现 Skip-gram Word2Vec 模型，并使用公开数据集进行训练，我们可以按照以下步骤进行。在这个示例中，我们将使用一个简单的文本数据集，如英文维基百科的一部分，来训练我们的模型。
+要实现 Skip-gram 架构下的 Word2Vec 模型，我们需要对模型结构进行一些调整。在 Skip-gram 模型中，目标是使用一个中心词来预测其上下文中的单词。因此，与 CBOW 相比，Skip-gram 模型的**输入和输出是颠倒的**：我们输入一个单词，然后尝试预测它的上下文。
 
-### 步骤 1: 准备环境
-
-确保您已经安装了 PyTorch。如果未安装，可以通过以下命令安装：
-
-```bash
-pip install torch torchvision
-```
-
-### 步骤 2: 准备数据集
-
-我们将使用维基百科的部分数据。您可以从多个来源获取此类数据，或者使用任何可用的文本数据集。为了简化，我们在这里使用一个小的文本数据。
-
-假设我们的数据集是一个包含几个句子的文本文件。在实际操作中，您应该使用更大的数据集。
-
-```python
-text_data = "In computer science, artificial intelligence (AI), sometimes called machine intelligence, is intelligence demonstrated by machines, in contrast to the natural intelligence displayed by humans and animals."
-```
-
-### 步骤 3: 数据预处理
-
-对文本数据进行预处理，包括分词、构建词汇表和准备训练数据。
+##### 0.数据准备
 
 ```python
 import torch
-from collections import Counter
-import random
-from torch.utils.data import DataLoader, Dataset
+import torch.nn as nn
+import torch.optim as optim
 
-# 分词
-def tokenize(text):
-    return text.lower().split()
+word_to_ix = {"A": 0, "dog": 1, "barks": 2, "at": 3, "night": 4}
+ix_to_word = {ix: word for word, ix in word_to_ix.items()}
+vocab_size = len(word_to_ix)
 
-tokens = tokenize(text_data)
-
-# 构建词汇表
-vocab = set(tokens)
-word_to_ix = {word: i for i, word in enumerate(vocab)}
-
-# Hyperparameters
-context_size = 2
+# 设置超参数
 embedding_dim = 10
-
-# 创建训练数据
-data = []
-for i in range(2, len(tokens) - 2):
-    context = [tokens[i - 2], tokens[i - 1],
-               tokens[i + 1], tokens[i + 2]]
-    target = tokens[i]
-    data.append((context, target))
 ```
 
-### 步骤 4: 定义 Skip-gram Word2Vec 模型
+以下是实现 Skip-gram 模型的步骤：
+
+##### 1. 定义 Skip-gram 模型
+
+我们将定义一个新的 PyTorch 模型，其结构适用于 Skip-gram：
 
 ```python
-class SkipGramModel(torch.nn.Module):
-
+class SkipGram(nn.Module):
     def __init__(self, vocab_size, embedding_dim):
-        super(SkipGramModel, self).__init__()
-        self.embeddings = torch.nn.Embedding(vocab_size, embedding_dim)
+        super(SkipGram, self).__init__()
+        self.embeddings = nn.Embedding(vocab_size, embedding_dim)
+        self.linear = nn.Linear(embedding_dim, vocab_size)
 
-    def forward(self, inputs):
-        embeds = self.embeddings(inputs)
-        return embeds
-
-# 初始化模型
-model = SkipGramModel(len(vocab), embedding_dim)
+    def forward(self, word):
+        embed = self.embeddings(word)
+        out = self.linear(embed)
+        log_probs = torch.log_softmax(out, dim=0)
+        return log_probs
 ```
 
-### 步骤 5: 训练模型
+![image-20240220235355813](C:\Users\86157\AppData\Roaming\Typora\typora-user-images\image-20240220235355813.png)
+
+##### 2. 准备 Skip-gram 训练数据
+
+Skip-gram 模型的训练数据需要调整为中心词到上下文词的映射：
 
 ```python
-# 训练函数
-def train_skipgram():
-    losses = []
-    loss_function = torch.nn.CrossEntropyLoss()
-    optimizer = torch.optim.SGD(model.parameters(), lr=0.01)
+skipgram_data = [
+    (torch.tensor(word_to_ix["dog"]), torch.tensor([word_to_ix["A"], word_to_ix["barks"]])),
+    (torch.tensor(word_to_ix["barks"]), torch.tensor([word_to_ix["dog"], word_to_ix["at"]])),
+    (torch.tensor(word_to_ix["at"]), torch.tensor([word_to_ix["barks"], word_to_ix["night"]]))
+]
+```
 
-    for epoch in range(100):
-        total_loss = 0
-        for context, target in data:
-            context_idxs = torch.tensor([word_to_ix[w] for w in context], dtype=torch.long)
-            model.zero_grad()
-            log_probs = model(context_idxs)
-            loss = loss_function(log_probs, torch.tensor([word_to_ix[target]], dtype=torch.long))
-            loss.backward()
-            optimizer.step()
+##### 3. 训练 Skip-gram 模型
 
-            total_loss += loss.item()
-        losses.append(total_loss)
-    return losses
+训练过程类似，但要注意损失函数的应用。由于 Skip-gram 模型的每个输入词对应多个输出词，因此我们需要适当地调整损失函数的计算：
+
+```python
+# 实例化模型
+skipgram_model = SkipGram(vocab_size, embedding_dim)
+
+# 同样的优化器和损失函数
+optimizer = optim.SGD(skipgram_model.parameters(), lr=0.001)
+loss_function = nn.NLLLoss()
 
 # 训练模型
-losses = train_skipgram()
+for epoch in range(100):
+    total_loss = 0
+    for center_word, context_words in skipgram_data:
+        for context_word in context_words:
+            log_probs = skipgram_model(center_word)
+            loss = loss_function(log_probs, context_word)
+            optimizer.zero_grad()
+            loss.backward()
+            optimizer.step()
+            total_loss += loss.item()
+    print(f"Epoch {epoch}, Loss: {total_loss}")
 ```
 
-### 步骤 6: 测试模型
+##### 4. 测试 Skip-gram 模型
 
-在实际应用中，您可以使用训练好的模型来获取词嵌入，或者在下游任务中使用这些嵌入。
+使用训练好的模型进行预测：
 
-### 注意事项
+```python
+# 测试数据
+test_word = torch.tensor([word_to_ix["dog"]])
 
-- 这个示例是高度简化的。在实际应用中，您应该使用更大的数据集和更复杂的数据预处理步骤。
-- Word2Vec 模型特别是在大型数据集上效果更佳。
-- 您可能需要调整超参数，如嵌入维度和学习率，以获得更好的结果。
-- Skip-gram 模型相对于 CBOW 在处理大型数据集时效果更好，尤其是对于不常见的单词。
+# 使用模型进行预测
+with torch.no_grad():
+    log_probs = skipgram_model(test_word)
+
+# 获取概率最高的单词索引
+predicted_indices = torch.topk(log_probs, 2).indices
+#返回 log_probs 中最高的两个值的索引,例如tensor([[0, 1]])
+
+predicted_words = [ix_to_word[idx.item()] for idx in predicted_indices[0]]
+'''item() 方法将一个只包含单个元素的张量转换为一个 Python 标量'''
+
+print(f"Input word: 'dog'")
+print(f"Predicted context words: {predicted_words}")
+```
+
+![image-20240220235206777](C:\Users\86157\AppData\Roaming\Typora\typora-user-images\image-20240220235206777.png)
+请注意，这只是一个基础的 Skip-gram 模型实现，可能需要进一步调优和大量数据进行训练以获得好的结果。在实际应用中，可以使用更高级的技术，如负采样（Negative Sampling)，来提高训练效率和模型性能。
