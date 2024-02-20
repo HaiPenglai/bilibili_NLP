@@ -3546,6 +3546,29 @@ for epoch in range(num_epochs):
 one-hot label: [1, 0, 0]
 ```
 
+#### 不稳定版本的 Log Softmax 计算
+
+```python
+import torch
+
+# 假设我们有一个三类分类问题的 logits
+logits = torch.tensor([[2.0, 1.0, 0.1]])
+
+# 计算 Softmax
+softmax_probs = torch.exp(logits) / torch.sum(torch.exp(logits), dim=1, keepdim=True)
+
+# 计算 Log Softmax
+log_softmax_manual = torch.log(softmax_probs)
+
+print("Log Softmax (manual, unstable):", log_softmax_manual)
+print("Log Softmax (PyTorch):", torch.log_softmax(logits, dim=1))
+'''Log Softmax (PyTorch): tensor([[-0.4170, -1.4170, -2.3170]])'''
+
+```
+
+![image-20240220125644611](C:\Users\86157\AppData\Roaming\Typora\typora-user-images\image-20240220125644611.png)
+这种方法在理论上是正确的，因为它遵循了 softmax 和 log 函数的直接定义。然而，由于在实际计算中可能遇到的数值问题，特别是当处理很大的 logits 值时，这种方法可能导致数值溢出（即结果变成无穷大）或数值下溢（即结果趋近于零)。在实践中，通常推荐使用数值稳定的版本,也就是下面的这一个版本。
+
 #### CrossEntropyLoss交叉熵损失
 
 ```python
@@ -3594,9 +3617,10 @@ print(log_softmax_lib, nll_loss_lib, cross_entropy_loss_lib)
 
 **交叉熵损失计算**
 
-交叉熵损失是负对数似然损失，计算方法是取目标类别对应的 LogSoftmax 值的负值。在这个例子中，因为真实类别是第一个类别（索引为 0），我们只取第一个类别的 LogSoftmax 值并取其相反数得到 `nll_loss_manual`。
+交叉熵损失是负对数似然损失，计算方法是取**目标类别对应的 LogSoftmax 值的负值**。在这个例子中，因为真实类别是第一个类别（索引为 0），我们只取第一个类别的 LogSoftmax 值并取其相反数得到 `nll_loss_manual`。
 
 手动计算的交叉熵损失值为 `0.4170`。
+原理:损失值是选中的 log 概率的相反数。因此，如果**模型对实际标签的预测概率高，损失值会低**（log 概率接近于 0，负数取反后趋近于 0）；反之，如果预测概率低，损失值会高。
 
 **库函数计算**
 
@@ -4115,5 +4139,514 @@ print(pos_tags)
 - `PN`: 代词（Pronoun）
 - `VC`: 动词-是（Verb-Copula）
 
+### 文本的表示方法
+
+#### 独热编码
+
+在自然语言处理（NLP）中，**"One-Hot" 编码**（也称为独热编码）是一种表示分类变量的常用方法。在这种编码方式中，每个单词被表示为一个很长的向量。这个向量的长度等于词汇表的大小，其中每个单词被分配一个唯一的索引。在表示一个特定的单词时，其对应索引的位置为 1，而其他位置为 0。
+
+这种表示方法的一个主要优点是它能**清楚地区分不同的单词**。但它的缺点是**向量的长度通常很长**，而且这种表示方法**不包含单词之间的任何关系信息**（例如，语义上相近的单词在独热编码中可能看起来完全不相关）。
+
+下面我将使用 Python 的 `sklearn` 库（其中包括 `OneHotEncoder` 类）来演示如何对一组简单的词语进行独热编码，并对结果进行说明。
+
+**示例**
+
+假设我们有一个包含三个单词的简单词汇表：`["apple", "banana", "cherry"]`。
+
+```python
+from sklearn.preprocessing import OneHotEncoder 
+
+# 创建词汇表
+vocab = [["apple"], ["banana"], ["cherry"]]
+
+# 初始化 OneHotEncoder
+encoder = OneHotEncoder(sparse=False)
+
+# 对词汇表进行独热编码
+one_hot_encoded = encoder.fit_transform(vocab)
+
+# 打印结果
+print("One-Hot Encoded Vocab:")
+print(one_hot_encoded)
+'''[[1. 0. 0.]
+ [0. 1. 0.]
+ [0. 0. 1.]]'''
+
+# 对新的词进行编码
+new_word = [["banana"]]
+new_word_encoded = encoder.transform(new_word)
+
+print("\nEncoded New Word (banana):")
+print(new_word_encoded)
+'''[[0. 1. 0.]]
+'''
+```
+
+**预期结果**
+
+1. **词汇表的独热编码**：
+   每个单词都会被转换成一个长度为 3 的向量（因为词汇表中有 3 个不同的单词），其中对应单词的位置为 1，其余位置为 0。
+
+2. **对新词的编码**：
+   当对词汇表之外的新词进行编码时，只有当这个新词存在于原先的词汇表中，它才能被正确编码。例如，对于单词 "banana"，将返回一个向量 `[0, 1, 0]`，表示它是词汇表中的第二个单词。
+
+**为什么词汇表是字符串数组套数组**
+
+在这个示例中，词汇表被构造为一个二维数组，每个内部数组包含一个单词。这是因为 `OneHotEncoder` 预期输入为二维数组，其中每一行代表一个样本，每一列代表一个特征。虽然在这个简单的例子中，每个样本（单词）只有一个特征（单词本身），但它仍需要作为二维数组提供。
+
+假设我们有一个数据集，其中每个样本包含两个特征：水果种类和颜色。例如，我们的样本可以是这样的：
+
+```python
+samples = [
+    ["apple", "red"],
+    ["banana", "yellow"],
+    ["cherry", "red"]
+]
+```
+
+这里，每个样本有两个特征：第一个特征是水果种类（"apple"、"banana"、"cherry"），第二个特征是颜色（"red"、"yellow"）。
+
+当我们对这些样本使用 `OneHotEncoder` 时，每个特征都会被独立地进行独热编码。例如：
+
+```python
+encoder = OneHotEncoder(sparse=False)
+one_hot_encoded = encoder.fit_transform(samples)
+```
+
+输出结果可能是这样的：
+
+```
+[
+    [1, 0, 0, 1, 0],  # apple, red
+    [0, 1, 0, 0, 1],  # banana, yellow
+    [0, 0, 1, 1, 0]   # cherry, red
+]
+```
+
+在这个例子中，前三个数字代表水果种类，后两个数字代表颜色。因此，对于 "apple, red"，编码结果是 `[1, 0, 0, 1, 0]`，表示 "apple"（第一个元素为 1）和 "red"（第四个元素为 1），**相当于apple独热码和red独热码的拼接**。
+
+**思考：**
+如果`vocab = [["apple", "banana", "cherry"]]`，词汇表的编码结果会是什么？
+
+```python
+[[1. 1. 1.]]
+```
+
+因为只有一个样本，包含三个特征。由于这些特征在词汇表中是唯一的，所以每个特征的独热编码都是 1。
+
+**`sparse=False` 的意思**
+
+当使用 `OneHotEncoder` 时
+
+```python
+encoder = OneHotEncoder(sparse=False)
+```
+
+默认得到的是一个稀疏矩阵（通常是 CSR 格式）。
+
+**压缩稀疏行（CSR）**: 存储所有非零元素的值，以及这些值的行索引，列索引。
+
+```python
+ (0, 0)	1.0
+  (1, 1)	1.0
+  (2, 2)	1.0
+```
+
+如果您需要一个常规的 NumPy 数组，可以设置 `sparse=False`
 
 
+#### 对新词的编码
+
+最后这个操作是在展示如何使用已训练（`fit`）的 `OneHotEncoder` 对新词进行编码。这个过程不会改变已经学习到的编码方式，而是将新词映射到已存在的编码上。
+
+例如，当我们对单词 "banana" 使用 `transform` 方法时，`OneHotEncoder` 会查找 "banana" 在之前学习到的词汇表中的位置，并返回其对应的独热编码向量。如果这个新词在词汇表中不存在，编码器将无法正确编码它。在这个例子中，"banana" 是词汇表的第二个词，所以它的独热编码是 `[0, 1, 0]`。
+
+注:
+
+```python
+new_word = [["banana"],['apple']]#查看多个词的编码
+'''[[0. 1. 0.]
+ [1. 0. 0.]]'''
+```
+
+#### 什么是 CBOW
+
+CBOW（Continuous Bag of Words）是一种用于自然语言处理的模型，特别是在词嵌入（word embedding）领域中。CBOW 的目标是根据上下文中的单词来预测目标单词。在这个模型中，上下文是指目标单词周围的单词。
+
+CBOW 模型的核心思想是，给定一个词的**上下文**（即这个词前后的一些词），模型应该能够**预测出这个词**是什么。例如，在句子 "The cat sits _ the mat" 中，给定上下文 "The cat sits on the mat"，CBOW 模型的任务是预测缺失的词（在这个例子中可能是 "on"）。
+
+#### CBOW 下的 Word2Vec【完型填空】
+
+Word2Vec 是一种广泛使用的词嵌入技术。Word2Vec 有两种主要的架构：CBOW 和 Skip-gram。在 CBOW 架构下，Word2Vec 模型使**用周围的上下文单词（即多个输入词）来预测目标单词**（即中心词）。相比之下，Skip-gram 模型则是用**一个单词来预测它周围的上下文**。
+
+#### 示例
+
+假设我们有一句话：“A dog barks at night”。这句话中没有重复的单词，我们的词汇表（vocab）将包含这些单词：`{"A", "dog", "barks", "at", "night"}`。
+
+**滑动窗口分析**
+
+在 CBOW 模型中，我们通常为每个目标单词定义一个上下文窗口（context window）。假设我们选择的窗口大小为 3（即目标词的前一个词和后一个词作为上下文）。那么对于我们的示例句子，滑动窗口将产生以下输入和输出：
+
+- 输入：["A", "barks"]，输出："dog"
+- 输入：["dog", "at"]，输出："barks"
+- 输入：["barks", "night"]，输出："at"
+
+#### 0.前情提要：手写Embedding层
+
+```python
+import torch
+import torch.nn as nn
+
+# 假设的词汇大小和嵌入维度
+vocab_size = 10
+embedding_dim = 5
+
+# 随机初始化嵌入矩阵
+embedding_matrix = torch.rand(vocab_size, embedding_dim)
+print("embedding_matrix",embedding_matrix)
+indexs=torch.tensor([[0,1],[2,3]])
+print("用矩阵作为索引",embedding_matrix[indexs])
+'''矩阵查询的索引可以是一个张量,此时会对这个张量中的每个元素进行查询,结果按照张良的形状拼接起来'''
+
+# 手动实现嵌入查找
+def manual_embedding_lookup(indices):
+    return embedding_matrix[indices]
+
+# 使用 nn.Embedding
+embedding_layer = nn.Embedding(vocab_size, embedding_dim)
+
+# 将 nn.Embedding 的权重设置为与手动嵌入相同的值
+'''不需要计算梯度'''
+with torch.no_grad():
+    embedding_layer.weight = nn.Parameter(embedding_matrix)
+'''张量赋值给weight就是需要nn.Parameter'''
+
+print("embedding_layer",embedding_layer.weight)
+
+# 生成随机索引
+indices = torch.randint(0, vocab_size, (3,2))
+
+print("indices",indices)
+
+# 使用手动嵌入方法
+manual_embeds = manual_embedding_lookup(indices)
+
+# 使用 nn.Embedding
+nn_embeds = embedding_layer(indices)
+
+# 比较结果
+print("Manual Embedding Result:\n", manual_embeds)
+print("\nnn.Embedding Result:\n", nn_embeds)
+print("\nAre the results equal? ", torch.all(manual_embeds == nn_embeds))
+
+```
+
+注：`indices = torch.randint(0, vocab_size, (3,2))`
+
+- 第一个参数 `0` 是生成随机整数的下限（包含）。
+- 第二个参数 `vocab_size` 是上限（不包含），表示生成的随机数将小于 `vocab_size`。
+- 最后一个参数 `(3,2)` 指定了张量的形状。
+
+**结论:**
+
+`nn.Embedding` 层**维护了一个嵌入矩阵（有vocab_size行，embedding_dim列）**，其中**每一行代表词汇表中一个单词的嵌入向量**。当给定一个索引张量（`indices`）时，`nn.Embedding` 层会**对这个索引中的每个元素进行查找操作**。具体来说，它会在嵌入矩阵中找到与这些索引对应的行,然后按照输入张量的形状拼接成一个张量。
+
+#### `embedding_dim` 的含义
+
+`embedding_dim` 是一个重要的参数，在创建词嵌入（word embeddings）时使用。它指定了嵌入向量的维度，即**每个单词被表示为多少维的向量**。
+
+- **维度数**：`embedding_dim` 表示每个单词的嵌入向量中的特征数量。例如，如果 `embedding_dim` 为 100，那么每个单词都会被表示为一个包含 100 个数值的向量。
+- **信息捕捉**：较高的维度可以使模型有更多的能力来捕捉和区分不同单词之间的细微差别，但同时也会增加模型的计算复杂性和对数据的需求。
+
+#### 确定 `embedding_dim`
+
+确定 `embedding_dim` 的过程涉及到几个因素的权衡：
+
+1. **任务复杂性**：对于复杂的 NLP 任务或大型的词汇表，可能需要较高维度的嵌入向量以捕捉丰富的语义信息。
+2. **数据量**：如果有大量的训练数据，可以尝试使用较高维度的嵌入，因为有足够的数据来学习这些额外的特征。
+3. **计算资源**：较高的维度需要更多的计算资源和训练时间。如果资源有限，可能需要选择较低的维度。
+4. **经验和实验**：通常，`embedding_dim` 的选择也基于经验和实验。在实践中，常见的维度包括 50、100、200 和 300。实验和模型调优可以帮助找到最适合特定任务的维度。
+
+#### CBOW 模型的操作
+
+要使用 PyTorch 构建一个 CBOW 模型进行 Word2Vec 训练，我们需要先定义模型架构，然后准备训练数据，并进行训练。以下是构建这个模型的步骤：
+
+##### 1. 导入必要的库
+
+首先，我们需要导入 PyTorch 及相关库：
+
+```python
+import torch
+import torch.nn as nn
+import torch.optim as optim
+```
+
+##### 2. 定义 CBOW 模型
+
+我们将定义一个简单的 CBOW 模型：
+
+```python
+class CBOW(nn.Module):
+    def __init__(self, vocab_size, embedding_dim):
+        super(CBOW, self).__init__()
+        self.embeddings = nn.Embedding(vocab_size, embedding_dim)
+        self.linear = nn.Linear(embedding_dim, vocab_size)
+
+    def forward(self, inputs):
+        embeds = self.embeddings(inputs).mean(dim=0)
+        out = self.linear(embeds)
+        log_probs = torch.log_softmax(out, dim=0)
+        return log_probs
+```
+
+**为什么要取平均**
+
+在 CBOW 模型中，取平均是一种简化的方法，用**于将上下文中多个单词的信息合并成一个单一的表示**。这样做的好处是模型**不需要关注上下文中单词的具体顺序**，只需捕捉它们的整体语义信息。然而，这也可能是一个缺点，因为某些情况下单词的具体顺序是很重要的。为了捕捉更复杂的上下文关系，可以使用更高级的模型，如 LSTM 或 **Transformer**。
+在反向传播过程中，CBOW 模型中的所有可训练参数都会被更新。这些包括：
+
+1. **嵌入矩阵的权重**：`self.embeddings` 中的权重。这些权重定义了每个单词的嵌入向量。
+2. **线性层的权重和偏置**：`self.linear` 中的权重和偏置。这些参数定义了从嵌入空间到输出空间（logits）的线性映射。
+
+![image-20240220130953987](C:\Users\86157\AppData\Roaming\Typora\typora-user-images\image-20240220130953987.png)
+
+##### 3. 准备数据
+
+接下来，我们需要准备训练数据。首先，我们创建一个词汇表，并将单词映射到整数索引：
+
+```python
+word_to_ix = {"A": 0, "dog": 1, "barks": 2, "at": 3, "night": 4}
+ix_to_word = {ix: word for word, ix in word_to_ix.items()}
+vocab_size = len(word_to_ix)
+#构建了2个字典，分别从字母映射到数字，数字映射到字母
+print("word_to_ix",word_to_ix)
+print("ix_to_word",ix_to_word)
+print("vocab_size",vocab_size)
+'''
+word_to_ix {'A': 0, 'dog': 1, 'barks': 2, 'at': 3, 'night': 4}
+ix_to_word {0: 'A', 1: 'dog', 2: 'barks', 3: 'at', 4: 'night'}
+vocab_size 5
+'''
+
+data = [
+    (torch.tensor([word_to_ix["A"], word_to_ix["barks"]]), torch.tensor(word_to_ix["dog"])),
+    (torch.tensor([word_to_ix["dog"], word_to_ix["at"]]), torch.tensor(word_to_ix["barks"])),
+    (torch.tensor([word_to_ix["barks"], word_to_ix["night"]]), torch.tensor(word_to_ix["at"]))
+]
+
+print(data)
+'''[(tensor([0, 2]), tensor(1)), (tensor([1, 3]), tensor(2)), (tensor([2, 4]), tensor(3))]'''
+#一个数组，当中有三个元素，每个元素对应一个滑动窗口，tensor([0, 2])是输入，tensor(1)是预测的值
+```
+
+##### 4.训练模型
+
+现在我们可以初始化模型并进行训练：
+
+```python
+# 设置超参数
+embedding_dim = 10
+
+# 实例化模型
+model = CBOW(vocab_size, embedding_dim)
+
+# 定义损失函数和优化器
+loss_function = nn.NLLLoss()
+optimizer = optim.SGD(model.parameters(), lr=0.001)
+
+# 训练模型
+for epoch in range(100):
+    total_loss = 0
+    for context, target in data:
+        if epoch == 99:
+            print(context, target)
+
+        # 步骤 1. 准备数据
+        context_idxs = context
+
+        # 步骤 2. 运行模型的前向传递
+        log_probs = model(context_idxs)
+
+        if epoch == 99:
+            print(log_probs)
+
+        # 步骤 3. 计算损失
+        loss = loss_function(log_probs.view(1, -1), target.view(1))
+
+        # 步骤 4. 反向传播并更新梯度
+        optimizer.zero_grad()
+        loss.backward()
+        optimizer.step()
+
+        total_loss += loss.item()
+    print(f"Epoch {epoch}, Loss: {total_loss}")
+```
+
+#### 5. 测试模型
+训练完成后，您可以使用模型来获取词嵌入，或尝试对新的上下文进行预测。
+
+```python
+# 测试数据
+test_context = torch.tensor([word_to_ix["A"], word_to_ix["barks"]])
+
+# 使用模型进行预测
+with torch.no_grad():
+    log_probs = model(test_context)
+
+# 获取概率最高的单词索引
+predicted_word_idx = torch.argmax(log_probs).item()
+
+# 将索引转换回单词
+predicted_word = ix_to_word[predicted_word_idx]
+
+print(f"Input context: ['A', 'barks']")
+print(f"Predicted word: '{predicted_word}'")
+
+```
+
+![image-20240220131322729](C:\Users\86157\AppData\Roaming\Typora\typora-user-images\image-20240220131322729.png)
+
+
+请注意，这个示例是一个非常简化的版本，只用于演示基本的 CBOW 模型结构。在实际应用中，您会需要更大的词汇表、更多的数据、更长时间的训练，以及可能的超参数调优。此外，为了提高模型的性能和准确性，通常会采用更复杂的技术，如负采样（Negative Sampling)。
+
+##### 词向量的含义
+
+在经过训练的 CBOW 模型中，**嵌入矩阵中的每一行代表一个单词的词向量**。这些词向量捕捉了单词之间的语义关系。例如，对于词汇表 `{"A": 0, "dog": 1, "barks": 2, "at": 3, "night": 4}`，嵌入矩阵的第 1 行（索引为 0）表示单词 "A" 的词向量，第 2 行（索引为 1）表示单词 "dog" 的词向量，依此类推。
+
+##### 为何意思相近的单词的词向量更接近
+
+在 CBOW 模型中，词向量通过上下文信息进行训练。模型学习如何根据给定的上下文预测目标单词。因此，**如果两个单词经常出现在相似的上下文中，它们的词向量会变得更接近**。这是因为这些向量需要捕捉相似的上下文信息以进行准确的预测。
+
+##### 词向量接近性的测量方法
+
+词向量之间的接近性**通常**通过计算它们之间的**余弦相似度**来衡量。余弦相似度测量的是两个向量在方向上的相似程度，而不是在数值大小上的相似性。如果两个向量的方向非常接近，它们的余弦相似度接近于 1；如果它们的方向相反，则接近于 -1。
+
+##### CBOW 模型的完形填空能力
+
+**CBOW 模型能够进行完形填空式的词预测**，是因为它在训练过程中学习了根据上下文预测目标单词的能力。模型通过观察大量的文本数据，学会了哪些单词更有可能出现在特定的上下文中。因此，给定一个包含空缺单词的句子，CBOW 模型可以根据上下文中的其他单词来预测最有可能填入该空缺的单词。
+
+
+#### skip-gram 下的 Word2Vec
+
+
+在 Skip-gram 模型中，与 CBOW 模型相反，我们使用目标单词来预测其上下文中的单词。这意味着对于给定的目标单词，模型试图预测其周围的单词。Skip-gram 模型特别适合处理大型数据集，并且对于频繁出现和不常见的单词都表现良好。
+
+**示例句子和词汇表**
+
+句子：“A dog barks at night”
+词汇表（vocab）：{"A", "dog", "barks", "at", "night"}
+
+**滑动窗口分析**
+
+在 Skip-gram 模型中，对于每个目标单词，我们会查看其周围的上下文单词。假设我们选择的窗口大小为 3（即考虑目标词前后各一个词作为上下文），那么对于我们的示例句子，滑动窗口将产生以下输入和输出：
+
+- 输入："dog"，输出：["A", "barks"]
+- 输入："barks"，输出：["dog", "at"]
+- 输入："at"，输出：["barks", "night"]
+
+要在 PyTorch 环境下实现 Skip-gram Word2Vec 模型，并使用公开数据集进行训练，我们可以按照以下步骤进行。在这个示例中，我们将使用一个简单的文本数据集，如英文维基百科的一部分，来训练我们的模型。
+
+### 步骤 1: 准备环境
+
+确保您已经安装了 PyTorch。如果未安装，可以通过以下命令安装：
+
+```bash
+pip install torch torchvision
+```
+
+### 步骤 2: 准备数据集
+
+我们将使用维基百科的部分数据。您可以从多个来源获取此类数据，或者使用任何可用的文本数据集。为了简化，我们在这里使用一个小的文本数据。
+
+假设我们的数据集是一个包含几个句子的文本文件。在实际操作中，您应该使用更大的数据集。
+
+```python
+text_data = "In computer science, artificial intelligence (AI), sometimes called machine intelligence, is intelligence demonstrated by machines, in contrast to the natural intelligence displayed by humans and animals."
+```
+
+### 步骤 3: 数据预处理
+
+对文本数据进行预处理，包括分词、构建词汇表和准备训练数据。
+
+```python
+import torch
+from collections import Counter
+import random
+from torch.utils.data import DataLoader, Dataset
+
+# 分词
+def tokenize(text):
+    return text.lower().split()
+
+tokens = tokenize(text_data)
+
+# 构建词汇表
+vocab = set(tokens)
+word_to_ix = {word: i for i, word in enumerate(vocab)}
+
+# Hyperparameters
+context_size = 2
+embedding_dim = 10
+
+# 创建训练数据
+data = []
+for i in range(2, len(tokens) - 2):
+    context = [tokens[i - 2], tokens[i - 1],
+               tokens[i + 1], tokens[i + 2]]
+    target = tokens[i]
+    data.append((context, target))
+```
+
+### 步骤 4: 定义 Skip-gram Word2Vec 模型
+
+```python
+class SkipGramModel(torch.nn.Module):
+
+    def __init__(self, vocab_size, embedding_dim):
+        super(SkipGramModel, self).__init__()
+        self.embeddings = torch.nn.Embedding(vocab_size, embedding_dim)
+
+    def forward(self, inputs):
+        embeds = self.embeddings(inputs)
+        return embeds
+
+# 初始化模型
+model = SkipGramModel(len(vocab), embedding_dim)
+```
+
+### 步骤 5: 训练模型
+
+```python
+# 训练函数
+def train_skipgram():
+    losses = []
+    loss_function = torch.nn.CrossEntropyLoss()
+    optimizer = torch.optim.SGD(model.parameters(), lr=0.01)
+
+    for epoch in range(100):
+        total_loss = 0
+        for context, target in data:
+            context_idxs = torch.tensor([word_to_ix[w] for w in context], dtype=torch.long)
+            model.zero_grad()
+            log_probs = model(context_idxs)
+            loss = loss_function(log_probs, torch.tensor([word_to_ix[target]], dtype=torch.long))
+            loss.backward()
+            optimizer.step()
+
+            total_loss += loss.item()
+        losses.append(total_loss)
+    return losses
+
+# 训练模型
+losses = train_skipgram()
+```
+
+### 步骤 6: 测试模型
+
+在实际应用中，您可以使用训练好的模型来获取词嵌入，或者在下游任务中使用这些嵌入。
+
+### 注意事项
+
+- 这个示例是高度简化的。在实际应用中，您应该使用更大的数据集和更复杂的数据预处理步骤。
+- Word2Vec 模型特别是在大型数据集上效果更佳。
+- 您可能需要调整超参数，如嵌入维度和学习率，以获得更好的结果。
+- Skip-gram 模型相对于 CBOW 在处理大型数据集时效果更好，尤其是对于不常见的单词。
