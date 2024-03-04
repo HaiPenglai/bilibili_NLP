@@ -4680,3 +4680,167 @@ print(f"Predicted context words: {predicted_words}")
 
 ![image-20240220235206777](C:\Users\86157\AppData\Roaming\Typora\typora-user-images\image-20240220235206777.png)
 请注意，这只是一个基础的 Skip-gram 模型实现，可能需要进一步调优和大量数据进行训练以获得好的结果。在实际应用中，可以使用更高级的技术，如负采样（Negative Sampling)，来提高训练效率和模型性能。
+
+#### 调库实现word2vec
+
+##### 下载
+
+```shell
+wget -c http://mattmahoney.net/dc/enwik9.zip -P data
+```
+
+![image-20240304143231860](C:\Users\86157\AppData\Roaming\Typora\typora-user-images\image-20240304143231860.png)
+
+下载了一个data文件，进入之后将其中的文件解压
+
+![image-20240304143059716](C:\Users\86157\AppData\Roaming\Typora\typora-user-images\image-20240304143059716.png)
+
+查看开头的字符
+```shell
+head -10 data/enwik9
+```
+
+![image-20240304143242591](C:\Users\86157\AppData\Roaming\Typora\typora-user-images\image-20240304143242591.png)
+
+去GitHub的fastTest下载wikifil.pl
+![image-20240304144455891](C:\Users\86157\AppData\Roaming\Typora\typora-user-images\image-20240304144455891.png)
+
+利用wikifil.pl将文本当中的html标签去除
+
+```shell
+perl wikifil.pl enwik9 > wikitext
+```
+
+![image-20240304145209197](C:\Users\86157\AppData\Roaming\Typora\typora-user-images\image-20240304145209197.png)
+
+如果Linux没有安装过python或者pip,之后安装fasttext
+
+```shell
+sudo apt install python3
+sudo apt install python-pip
+pip install fasttext
+```
+
+##### 训练
+
+要使用FastText库进行Skip-gram模型的Word2Vec训练，您首先需要安装FastText。如果您还没有安装，可以通过Python的包管理器pip来安装。在您的命令行中运行：
+
+```bash
+pip install fasttext
+```
+
+接下来，您可以使用以下Python脚本来训练模型。这个脚本假定您已经有了处理好的文本文件，即您的700MB的维基百科语料。
+
+```python
+import fasttext
+
+# 定义训练文件的路径
+training_file = './data/wikitext.txt'  # 请将这里的路径替换成您文件的实际路径
+
+# 训练模型
+model = fasttext.train_unsupervised(training_file, model='skipgram')
+
+# 保存模型
+model.save_model('./data/word2vec_skipgram_model.bin')
+```
+
+这段代码首先导入`fasttext`库，然后指定您的训练文件路径。`fasttext.train_unsupervised`函数用于训练模型，其中`model='skipgram'`参数指定使用Skip-gram模型。训练完成后，模型被保存到文件中，以便以后使用。
+
+请注意，FastText的训练可能会占用较多的计算资源，并且根据您的数据集大小和计算机的性能，可能需要一些时间来完成。
+
+此外，FastText提供了多种参数来调整训练，例如调整向量的维度、学习率、上下文窗口大小等。您可以根据需要调整这些参数以优化模型的性能和准确性。这些参数可以作为`train_unsupervised`函数的参数提供。例如：
+
+```python
+model = fasttext.train_unsupervised(
+    training_file, 
+    model='skipgram',
+    dim=100,         # 词向量维度
+    ws=5,            # 上下文窗口大小
+    epoch=5,         # 迭代次数
+    minCount=5       # 忽略总频率低于此值的所有单词
+)
+```
+
+您可以根据自己的需求和计算资源来调整这些参数。
+
+##### 测试
+
+您已经成功训练了一个使用 FastText 的 Skip-gram 模型，并且保存了训练好的模型。接下来，您可以加载这个模型，然后使用它来获取单词的词向量以及找出与某个单词最相近的单词。以下是如何操作的步骤：
+
+1. **加载模型**：使用 FastText 的 `load_model` 函数加载您已经保存的模型。
+
+2. **获取词向量**：使用模型的 `get_word_vector` 方法来获取特定单词的词向量。
+
+3. **找出相近的单词**：使用模型的 `get_nearest_neighbors` 方法来找出与给定单词最相近的单词。
+
+下面是相应的代码示例：
+
+```python
+import fasttext
+
+# 加载模型
+model = fasttext.load_model('./data/word2vec_skipgram_model.bin')
+
+# 获取单词的词向量
+word = "example"  # 替换为您感兴趣的单词
+word_vector = model.get_word_vector(word)
+print(f"词向量（{word}）: {word_vector}")
+
+# 找出与特定单词最接近的单词
+nearest_neighbors = model.get_nearest_neighbors(word, k=5)  # k表示返回的最近邻单词的数量
+print(f"与单词（{word}）最接近的单词及其相似度:")
+for neighbor in nearest_neighbors:
+    similar_word, similarity = neighbor
+    print(f"{similar_word}, 相似度: {similarity}")
+```
+
+这段代码首先加载了之前保存的模型。然后，它会获取您选择的单词（在这个例子中是"example"）的词向量，并打印出来。接下来，它找出与这个单词最接近的5个单词及其相似度，并将这些信息打印出来。
+
+请注意，要成功执行这些操作，您需要确保模型文件 `word2vec_skipgram_model.bin` 在当前工作目录中，或者提供其完整路径。同时，您可以通过更换 `word` 变量的值来探索不同单词的词向量和相似单词。
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
