@@ -1,3 +1,5 @@
+import math
+
 import torch
 import torch.nn as nn
 import torch.nn.functional as F
@@ -17,11 +19,9 @@ print("nn.Conv2d Output:")
 print(conv_output.size())
 print(conv_output)
 
-
 # 提取权重和偏差
 weights = conv_layer.weight.data
 bias = conv_layer.bias.data
-
 # 手动实现卷积的函数
 def manual_conv2d(input_img, weights, bias, stride=1, padding=1):
     # 添加填充

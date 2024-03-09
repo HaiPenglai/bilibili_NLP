@@ -21,5 +21,5 @@ print(f"词向量（{word}）: {word_vector}")
 nearest_neighbors = model.get_nearest_neighbors(word,5) # k表示返回的最近邻单词的数量
 print(f"与单词（{word}）最接近的单词及其相似度:")
 for neighbor in nearest_neighbors:
-    similar_word, similarity = neighbor
-    print(f"{similar_word}, 相似度: {similarity}")
+    similarity,similar_word = neighbor
+    print(f"{similar_word}, 相似度: {similarity},词向量:{model.get_word_vector(similar_word)}")

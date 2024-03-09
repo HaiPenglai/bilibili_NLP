@@ -4679,7 +4679,7 @@ print(f"Predicted context words: {predicted_words}")
 ```
 
 ![image-20240220235206777](C:\Users\86157\AppData\Roaming\Typora\typora-user-images\image-20240220235206777.png)
-请注意，这只是一个基础的 Skip-gram 模型实现，可能需要进一步调优和大量数据进行训练以获得好的结果。在实际应用中，可以使用更高级的技术，如负采样（Negative Sampling)，来提高训练效率和模型性能。
+请注意，这只是一个基础的 Skip-gram 模型实现，简化了非常多的细节，可能需要进一步调优和大量数据进行训练以获得好的结果。在实际应用中，可以使用更高级的技术，如负采样（Negative Sampling)，来提高训练效率和模型性能。
 
 #### 调库实现word2vec
 
@@ -4787,38 +4787,159 @@ word_vector = model.get_word_vector(word)
 print(f"词向量（{word}）: {word_vector}")
 
 # 找出与特定单词最接近的单词
-nearest_neighbors = model.get_nearest_neighbors(word, k=5)  # k表示返回的最近邻单词的数量
+nearest_neighbors = model.get_nearest_neighbors(word,5) # k表示返回的最近邻单词的数量
 print(f"与单词（{word}）最接近的单词及其相似度:")
 for neighbor in nearest_neighbors:
-    similar_word, similarity = neighbor
-    print(f"{similar_word}, 相似度: {similarity}")
+    similarity,similar_word = neighbor
+    print(f"{similar_word}, 相似度: {similarity},词向量:{model.get_word_vector(similar_word)}")
 ```
 
 这段代码首先加载了之前保存的模型。然后，它会获取您选择的单词（在这个例子中是"example"）的词向量，并打印出来。接下来，它找出与这个单词最接近的5个单词及其相似度，并将这些信息打印出来。
 
 请注意，要成功执行这些操作，您需要确保模型文件 `word2vec_skipgram_model.bin` 在当前工作目录中，或者提供其完整路径。同时，您可以通过更换 `word` 变量的值来探索不同单词的词向量和相似单词。
 
+#### 词向量可视化
+
+要在 Windows 上使用 PyTorch 实现词向量的可视化，你首先需要确保已经安装了相关的库。这里的关键是使用 PyTorch 来生成或加载词向量，然后使用 matplotlib 进行可视化。对于高维词向量（如100维或更高），通常使用 t-SNE（t-Distributed Stochastic Neighbor Embedding）技术来降维至2维或3维，以便可视化。
+
+首先，确保已经安装了所需的库。如果还没有安装，可以使用 pip 安装 PyTorch、matplotlib 和 scikit-learn（包含 t-SNE 实现）：
+
+```bash
+pip install torch matplotlib scikit-learn
+```
+
+接下来，你可以使用以下代码来生成随机的词向量，然后用 t-SNE 进行降维，并使用 matplotlib 进行可视化：
+
+```python
+import torch
+import matplotlib.pyplot as plt
+from sklearn.manifold import TSNE
+
+# 生成随机词向量
+num_words = 100  # 词汇量大小
+embedding_dim = 50  # 词向量维度
+word_embeddings = torch.randn(num_words, embedding_dim)
+
+# 使用 t-SNE 进行降维
+tsne = TSNE(n_components=2, random_state=0)
+word_embeddings_2d = tsne.fit_transform(word_embeddings)
+
+# 可视化
+plt.figure(figsize=(10, 10))
+for i in range(num_words):
+    plt.scatter(word_embeddings_2d[i, 0], word_embeddings_2d[i, 1])
+    plt.annotate(f'word_{i}', xy=(word_embeddings_2d[i, 0], word_embeddings_2d[i, 1]), xytext=(5, 2),
+                 textcoords='offset points', ha='right', va='bottom')
+plt.show()
+```
+
+这段代码首先创建了一个随机的词向量矩阵，然后使用 t-SNE 对这些高维词向量进行降维，最后使用 matplotlib 将这些词向量在2维空间中可视化。每个点代表一个词向量，且标有对应的索引（如 word_0, word_1, ...）。
+
+![image-20240304233633090](C:\Users\86157\AppData\Roaming\Typora\typora-user-images\image-20240304233633090.png)
+
+1. **`n_components=2`**：
+   - 在`TSNE`函数中使用，这个参数设置了嵌入空间的维度。
+   - 在这里，`n_components=2`意味着t-SNE将数据降维到2维。这对于数据可视化来说是理想的，因为我们可以在二维平面上绘制和理解这些点。
+
+2. **`random_state=0`**：
+   - 同样在`TSNE`中使用，这个参数设置了随机数生成器的种子。
+   - 通过设置一个固定的`random_state`，确保每次运行t-SNE时得到的结果是一致的。t-SNE是一种随机算法，不同的随机种子可能导致结果有所不同。
+
+3. **`tsne.fit_transform`**：
+   - 这是t-SNE算法的主要函数，用于执行降维。
+   - 它接收高维数据（在您的案例中是词向量），并将其转换为低维表示（2维）。这使得可以在二维平面上可视化高维数据。
+
+4. **`figsize=(10, 10)`**：
+   - 这是在`matplotlib`中设置图形大小的参数。
+   - `figsize=(10, 10)`设置了绘制的图形大小为10x10英寸。
+
+5. **`plt.scatter`**：
+   - 这是`matplotlib`库中的一个函数，用于在图表中创建散点图。
+   - 它在二维空间中绘制点，每个点的位置由x和y坐标决定。
+
+6. **`xy=(word_embeddings_2d[i, 0], word_embeddings_2d[i, 1])` 和 `xytext=(5, 2)`**：
+   - 这些参数用于`plt.annotate`函数，它在matplotlib图表中添加文本注释。
+   - `xy`指定注释指向的点的位置（即词向量的降维坐标）。
+   - `xytext`指定文本注释的位置。这里是相对于`xy`点的偏移。
+
+7. **`textcoords='offset points', ha='right', va='bottom'`**：
+   - 也是`plt.annotate`的参数，用于进一步定义文本注释的样式和对齐方式。
+   - `textcoords='offset points'`表示`xytext`的坐标是相对于`xy`点的偏移量，单位是点。
+   - `ha='right'`和`va='bottom'`分别设置水平对齐（horizontal alignment）和垂直对齐（vertical alignment）为右对齐和底对齐。
+
+#### 标签数量分布分析
+
+**训练集位置：**
+可以直接下载
+
+```json
+./data/wxTextClassification/train.news.csv
+./data/wxTextClassification/test.news.csv
+```
 
 
 
+![image-20240309113310190](C:\Users\86157\AppData\Roaming\Typora\typora-user-images\image-20240309113310190.png)
+
+**训练集说明:**
+
+​	数据集是中文微信消息，包括微信消息的Official Account Name，Title，News Url，Image Url，Report Content，label。Title是微信消息的标题，label是消息的真假标签（0是real消息，1是fake消息）。训练数据保存在train.news.csv，测试数据保存在test.news.csv。
+
+![image-20240309113546252](C:\Users\86157\AppData\Roaming\Typora\typora-user-images\image-20240309113546252.png)
+
+**csv格式**
+每一行数据之间用英文逗号隔开，行和行之间用换行隔开,数据当中也有逗号，但是都是中文逗号。
+
+![image-20240309113757533](C:\Users\86157\AppData\Roaming\Typora\typora-user-images\image-20240309113757533.png)
+
+​	**统计处理**
+
+```py
+import pandas as pd
+
+# Load the datasets
+train_data_path = './data/wxTextClassification/train.news.csv'
+test_data_path = './data/wxTextClassification/test.news.csv'
+
+train_data = pd.read_csv(train_data_path)
+test_data = pd.read_csv(test_data_path)
+
+print(test_data)
+print(test_data['label'])
+print(test_data.columns)
+
+print("the distribution of the labels")
+print("训练集标签分布")
+print(train_data['label'].value_counts())
+print(len(train_data))
+print("测试集标签分布")
+print(test_data['label'].value_counts())
+print(len(test_data))
 
 
+```
 
+**输出**
 
+```shell
+the distribution of the labels
+训练集标签分布
+0    7844
+1    2743
+Name: label, dtype: int64
+10587
+测试集标签分布
+0    8659
+1    1482
+Name: label, dtype: int64
+10141
+```
 
+**解释:**
 
+`train_data` 是一个数据帧(DataFrame)，DataFrame是一个二维的、表格型的数据结构，您可以将它想象成一个Excel表。
 
-
-
-
-
-
-
-
-
-
-
-
+ `['label']` 指的是从这个DataFrame中选择名为 `'label'` 的列。结果是一个Series（一种Pandas数据结构），Series在Pandas中则是一个一维的数组结构。您可以将它视为Excel表中的单独一列或一行。
 
 
 
