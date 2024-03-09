@@ -4937,9 +4937,190 @@ Name: label, dtype: int64
 
 **解释:**
 
-`train_data` 是一个数据帧(DataFrame)，DataFrame是一个二维的、表格型的数据结构，您可以将它想象成一个Excel表。
+- **`train_data`** 是一个**数据帧**(DataFrame)，DataFrame是一个二维的、表格型的数据结构，您可以将它想象成一个**Excel表。**
 
- `['label']` 指的是从这个DataFrame中选择名为 `'label'` 的列。结果是一个Series（一种Pandas数据结构），Series在Pandas中则是一个一维的数组结构。您可以将它视为Excel表中的单独一列或一行。
+-  **`['label']`** 指的是从这个DataFrame中**选择名为 `'label'` 的列**。结果是一个Series（一种Pandas数据结构），Series在Pandas中则是一个一维的数组结构。您可以将它视为Excel表中的**单独一列或一行**。
+
+- **`len(test_data)`**: 这个函数返回的是DataFrame中行的数量，也就是样本的总数。`len()`不会包含表头行。
+- **test_data.columns：**表头行（即列名称）
+
+![image-20240309121802216](C:\Users\86157\AppData\Roaming\Typora\typora-user-images\image-20240309121802216.png)
+
+**画图：**代码解释略,看看就行。
+
+```python
+import matplotlib.pyplot as plt
+import numpy as np
+
+# 绘制训练集和测试集的标签分布柱状图
+train_label_counts = train_data['label'].value_counts()
+test_label_counts = test_data['label'].value_counts()
+
+# 创建一个图和子图
+fig, ax = plt.subplots()
+
+# 柱状图的数据
+labels = ['Real News', 'Fake News']
+train_counts = [train_label_counts[0], train_label_counts[1]]
+test_counts = [test_label_counts[0], test_label_counts[1]]
+
+# 设置柱状图的位置和宽度
+x = np.arange(len(labels))  # 标签位置
+width = 0.35  # 柱状图的宽度
+
+# 绘制柱状图
+rects1 = ax.bar(x - width/2, train_counts, width, label='Train')
+rects2 = ax.bar(x + width/2, test_counts, width, label='Test')
+
+# 添加一些文本用于标签、标题和自定义x轴刻度标签等
+ax.set_ylabel('Counts')
+ax.set_title('Label distribution in Training and Testing Sets')
+ax.set_xticks(x)
+ax.set_xticklabels(labels)
+ax.legend()
+
+# 为每个条形图添加一个文本标签
+def autolabel(rects):
+    """Attach a text label above each bar in *rects*, displaying its height."""
+    for rect in rects:
+        height = rect.get_height()
+        ax.annotate('{}'.format(height),
+                    xy=(rect.get_x() + rect.get_width() / 2, height),
+                    xytext=(0, 3),  # 3 points vertical offset
+                    textcoords="offset points",
+                    ha='center', va='bottom')
+
+autolabel(rects1)
+autolabel(rects2)
+
+# 显示图形
+plt.show()
+```
+
+![image-20240309124249011](C:\Users\86157\AppData\Roaming\Typora\typora-user-images\image-20240309124249011.png)
+
+#### 句子长度分布图
+
+```py
+import pandas as pd
+import matplotlib.pyplot as plt
+
+# 加载数据集
+train_data_path = './data/wxTextClassification/train.news.csv'
+train_data = pd.read_csv(train_data_path)
+
+# 计算每个标题的长度
+train_data['Title_Length'] = train_data['Title'].apply(len)
+print(train_data['Title_Length'])
+
+# 绘制标题长度的柱状图
+plt.figure(figsize=(10, 6))
+plt.hist(train_data['Title_Length'], bins=range(0, max(train_data['Title_Length']) + 10, 10), edgecolor='black')
+plt.title('Distribution of Title Lengths in Training Set')
+plt.xlabel('Title Length')
+plt.ylabel('Number of Samples')
+plt.xticks(range(0, max(train_data['Title_Length']) + 10, 10))
+plt.show()
+
+```
+
+![image-20240309125504448](C:\Users\86157\AppData\Roaming\Typora\typora-user-images\image-20240309125504448.png)
+
+**解释:**
+
+1. **`train_data['Title_Length'] = train_data['Title'].apply(len)`**：这行代码的确在`train_data`这个DataFrame中**添加了一个新的列**`Title_Length`。这个新列的每个元素是由`train_data['Title']`这一列的相应元素（即每个标题）的长度计算得到的。**`.apply(len)`是将Python内置的`len`函数应用于`train_data['Title']`的每个元素上。**
+
+2. **`plt.title`**：这个函数用于给图表添加一个标题。
+
+3. **`plt.xlabel`**：这个函数用于给图表的x轴添加一个标签。
+
+4. **`plt.ylabel`**：这个函数用于给图表的y轴添加一个标签。
+
+5. **`plt.show()`**：这个函数用于**显示整个图表**。在某些环境中（如Jupyter Notebook），图表可能会自动显示，但在其他环境中（如普通的Python脚本），则需要调用`plt.show()`来显式显示图表。
+
+6. **`plt.hist`**：这个函数用于**绘制直方图**。在这个上下文中，它用于显示`train_data['Title_Length']`中的数据分布，根据指定的bins（区间）将数据分布可视化，其中range部分是一样的。
+
+7. **`plt.xticks`**：这个函数用于设置**x轴的刻度标签**。在您的代码中，它被用来设置x轴上的刻度，以便显示不同的标题长度区间。通过`range(0, max(train_data['Title_Length']) + 10, 10)`，**设置了从0开始，到最长标题长度加10，每隔10个单位一个刻度的x轴刻度。**
+
+这些代码行共同工作，以生成一个直观的图表，展示了训练集中新闻标题长度的分布情况。
+测试集：
+
+<img src="C:\Users\86157\AppData\Roaming\Typora\typora-user-images\image-20240309163342525.png" alt="image-20240309163342525" style="zoom:67%;" />
+
+       ####   词汇总数统计
+
+ ```python
+ import pandas as pd
+ import jieba
+ 
+ # 加载数据
+ train_data_path = './data/wxTextClassification/train.news.csv'
+ test_data_path = './data/wxTextClassification/test.news.csv'
+ train_data = pd.read_csv(train_data_path)
+ test_data = pd.read_csv(test_data_path)
+ 
+ # 选择需要分词的列，例如：'Report Content'
+ train_texts = train_data['Report Content'].tolist()
+ test_texts = test_data['Report Content'].tolist()
+ 
+ print(type(train_texts))
+ print(train_texts[:5])#前五个元素
+ 
+ # 分词函数
+ def segment_words(texts):
+     word_set = set()
+     for text in texts:
+         if isinstance(text, str):  # 确保文本是字符串
+             words = jieba.lcut(text)
+             word_set.update(words)
+     return word_set
+ 
+ # 统计训练集和测试集中的不同词语
+ train_words = segment_words(train_texts)
+ test_words = segment_words(test_texts)
+ 
+ # 输出不同词语的数量
+ print("Number of unique words in training set:", len(train_words))
+ print("Number of unique words in testing set:", len(test_words))
+ 
+ ```
+
+**`tolist()`**: 这是Pandas Series的一个方法，用于将DataFrame的列转换为Python列表（list）。
+
+**·isinstance()**: 这是一个内置的Python函数，用于检查一个对象是否是一个已知的类型。
+
+**`lcut`**方法是`jieba`中用于进行分词的方法之一,例如，`jieba.lcut("我爱自然语言处理")`可能会返回`["我", "爱", "自然语言", "处理"]`。
+
+**`update()`**: 这是Python集合（set）的一个方法。它用于将一个列表（或任何可迭代对象）中的元素添加到集合中。不同于列表，集合不包含重复元素。
+
+```shell
+<class 'list'>
+['内容不符', '满口胡言', '？ ', '领个屁证，过你妹的七夕，几天前的图在今天拿来博眼球', '事件不实。']
+Number of unique words in training set: 16157
+Number of unique words in testing set: 18976
+```
+
+#### 词云统计
+
+下载安装词云包，非常简单：
+
+```bash
+pip install wordcloud
+```
+
+![image-20240309215004108](C:\Users\86157\AppData\Roaming\Typora\typora-user-images\image-20240309215004108.png)
+
+中文词云需要字体包,但是实际上Windows电脑自带了所有字体。
+
+```json
+C:\Windows\Fonts
+```
+
+![image-20240309220127849](C:\Users\86157\AppData\Roaming\Typora\typora-user-images\image-20240309220127849.png)
+
+复制到data/fonts，可以发现三种，分别是常规（msyh.ttc）、粗体（msyhbd.ttc）和轻体（msyhl.ttc）。与`.ttf`（TrueType Font）文件不同，`.ttc`（TrueType Collection）文件是一个容器，内部可以包含多个风格相近的字体变种。在大多数情况下，`.ttc`文件可以直接用于大部分需要字体的应用，包括`wordcloud`库。
+
+![image-20240309220753076](C:\Users\86157\AppData\Roaming\Typora\typora-user-images\image-20240309220753076.png)
 
 
 
@@ -4949,6 +5130,39 @@ Name: label, dtype: int64
 
 
 
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+提示词：
 
 
 
