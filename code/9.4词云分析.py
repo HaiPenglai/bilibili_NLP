@@ -33,6 +33,4 @@ font_path = './data/msyh.ttc'
 print("真新闻词云：")
 generate_wordcloud(real_news_content, font_path)
 
-# 生成并显示假新闻的词云
-print("假新闻词云：")
-generate_wordcloud(fake_news_content, font_path)
+ 
