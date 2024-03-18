@@ -1630,6 +1630,18 @@ print(x.requires_grad)  # 输出: True
 
 ### torch.nn--neural networks
 
+在PyTorch中，线性层的输出计算公式遵循基本的线性代数运算。给定输入矩阵$X$，线性层的权重$W$和偏置$b$，**线性层的输出$Y$可以通过下面的公式计算：**
+
+$$ Y = XW^T + b $$
+
+这里：
+- **$X$ 是输入矩阵，假设其形状为$[N, \text{in\_features}]$，其中$N$是批量大小【样本数】，$\text{in\_features}$是每个输入样本的特征数量。**
+- **$W$ 是权重矩阵，其形状为$[\text{out\_features}, \text{in\_features}]$，其中$\text{out\_features}$是输出特征的数量。**
+- **$b$ 是偏置向量，形状为$[\text{out\_features}]$。**
+- **$Y$ 是输出矩阵，形状为$[N, \text{out\_features}]$。**
+
+**注意，$W^T$表示$W$的转置**。在PyTorch的实现中，这个转置是隐式进行的，意味着你不需要显式地转置$W$来计算$Y$；PyTorch会自动处理这一点。简而言之，这个公式表示的是每个输入向量与权重矩阵的线性组合，加上偏置，从而得到输出向量。
+
 #### 线性层nn.Linear
 
 ```python
@@ -5342,6 +5354,8 @@ $$ p(x_1, x_2, x_3, \ldots) \approx p(x_1) \times p(x_2 | x_1) \times p(x_3 | x_
 
 **结论：通常使用二三元语法。**
 
+### RNN的可视化和手敲实现
+
 #### RNN的输入
 
 **RNN**: Recurrent Neural Network（循环神经网络）
@@ -5353,6 +5367,12 @@ RNN中的时间步$t$
 在时间步$t$，$x_t$就是该时间点对应的输入。例如：
 
 - **在文本处理应用中，$x_t$可能是在时间步$t$的单词或字符的独热编码（one-hot encoding）或词嵌入向量（word embedding vector）。**
+- 如果我们有一个序列“你好世界”，那么：
+
+  - $x_1$ 对应于“你”,
+  - $x_2$ 对应于“好”,
+  - $x_3$ 对应于“世”,
+  - $x_4$ 对应于“界”。
 - **在股票价格预测应用中，$x_t$可能是第$t$天的股票价格或其他相关的财经指标。**
 - **在语音识别应用中，$x_t$可能是时间步$t$的音频信号的特征向量。**
 
@@ -5362,12 +5382,20 @@ RNN中的时间步$t$
 
 **每个$h_t$代表了截至当前时间步$t$，模型对之前输入序列的“记忆”或“理解”。**例如： $h_3$：表示在处理完$x_1, x_2, x_3$之后，模型的内部状态【在文本类任务当中，是对前3个词的""理解""】。
 
+- 如果我们有一个序列“你好世界”，那么：
+  - $h_1$ 反映了模型对“你”的理解，
+  - $h_2$ 结合了$h_1$（即对“你”的理解）和新的输入$x_2$（即“好”），从而反映了模型对“你好”的理解，
+  - $h_3$ 进一步结合了$h_2$和新的输入$x_3$（即“世”），从而反映了模型对“你好世”的理解，
+  - $h_4$ 则结合了$h_3$和新的输入$x_4$（即“界”），从而反映了模型对整个序列“你好世界”的综合理解。
+
 **在每个时间步$t$，RNN会根据当前的输入$x_t$和前一时间步的隐藏状态$h_{t-1}$来计算当前的隐藏状态$h_t$。**每个隐藏状态$h_t$不仅取决于当前的输入$x_t$，也依赖于前一个隐藏状态$h_{t-1}$，这反映了序列的连续性和上下文依赖性。
 这个过程可以通过下面的公式概括：
 
 $$ h_t = f(W_{xh}x_t + W_{hh}h_{t-1} + b_h) $$
 
 其中，$f$是激活函数，$W_{xh}$是输入到隐藏状态的权重矩阵，$W_{hh}$是隐藏状态到隐藏状态的权重矩阵，$b_h$是隐藏状态的偏置项【命名上很有规律】。
+
+**现实意义：$h_t$表示模型对前t个输入的理解，本公式意味着模型可以在前`t-1`个输入的理解的基础上，加上当前的输入，得到对所有`t`个输入的理解。有点动态规划的感觉。就类似于基于我对背景故事的理解，再加上当前章节去得到对整个故事的理解。**
 
 RNN可以通过这种递归方式不断更新其隐藏状态，从而在处理序列数据时考虑到之前的信息。这使得RNN非常适合处理那些输出依赖于先前输入的任务，如语言建模、序列生成、时间序列预测等。
 
@@ -5386,6 +5414,8 @@ RNN可以通过这种递归方式不断更新其隐藏状态，从而在处理�
 
 - 在不同的应用场景中，$y_t$可以有不同的含义。例如，**在文本生成任务中，$y_t$可能代表下一个单词的概率分布；在股票价格预测中，它可能代表下一个时间步的价格预测；在情感分析中，$y_t$可能代表句子的情感标签的概率分布。**
 - $y_t$是根据当前时间步的隐藏状态$h_t$（以及有时当前的输入$x_t$）来计算的，这反映了RNN模型对当前时刻及之前时刻信息的综合理解
+- 如果我们有一个序列“你好世界”，那么：
+  如果我们使用RNN进行序列生成或预测任务，$y_4$可以被视为基于当前模型理解（即到“界”为止的理解）对序列中下一个元素（即第五个字）的预测。
 
 $y_t$的计算通常涉及将当前时间步的隐藏状态$h_t$【这里没有t-1】通过一个或多个线性层（也叫全连接层）并应用一个激活函数。具体来说，计算公式可能如下所示：
 
@@ -5395,6 +5425,8 @@ $$ y_t = g(W_{hy}h_t + b_y) $$
 - $W_{hy}$是从隐藏状态到输出层的权重矩阵。
 - $b_y$是输出层的偏置项【命名上很有规律】。
 - $g$是激活函数，它的选择取决于具体任务。例如，在分类任务中常用的是softmax函数，它可以将输出转换为概率分布。
+
+**现实意义：本公式意味着可以用模型对`t`个输入的理解得到一个预测(反馈)，就类似于基于我对数学的理解（`h_t`），去对数学题给出一个答案(`y_t`)。**
 
 #### $y_t$激活函数的选择
 
@@ -5428,6 +5460,8 @@ $$ h_t = f(W_{xh}x_t + W_{hh}h_{t-1} + b_h) $$
 
 #### 简化公式
 
+![image-20240317214908262](./assets/image-20240317214908262.png)
+
 对于循环神经网络（RNN）中的计算过程，我们可以通过合并权重矩阵和输入向量来简化计算。这种方法利用了矩阵运算的性质，可以减少计算步骤并提高效率。
 
 原始的计算公式是：
@@ -5448,6 +5482,7 @@ $$ h_t = f(W_h [x_t; h_{t-1}] + b_h) $$
 - $W_{xh}$的形状为$200 \times 10000$。
 - $W_{hh}$的形状为$200 \times 200$。
 - $b_h$是一个200维的向量。
+  ![image-20240317215312513](./assets/image-20240317215312513.png)
 
 **拼接后的形状：**
 
@@ -5460,26 +5495,30 @@ $$ h_t = f(W_h [x_t; h_{t-1}] + b_h) $$
 - 加上偏置$b_h$（$200 \times 1$的向量）后，结果仍然是一个$200 \times 1$的向量。
 - 应用激活函数$f$之后，$h_t$的形状不变，为$200 \times 1$。
 
+**补充：**
 
+- $ h $：hidden state（隐藏状态）
+- $ b $：bias（偏置）
+- $ W $：weight（权重）
 
 
 
 #### nn.RNN
 
-在PyTorch中，`nn.RNN`模块提供了一个简单的循环神经网络层的实现。你可以直接调用这个模块来构建RNN模型，而不必定义一个新的类，尤其是在你想要快速原型或者演示基本概念时。这里我将介绍如何使用`nn.RNN`，包括初始化参数、准备输入数据以及前向传播。
+**在PyTorch中，`nn.RNN`模块提供了一个简单的循环神经网络层的实现。你可以直接调用这个模块来构建RNN模型，而不必定义一个新的类**，尤其是在你想要快速原型或者演示基本概念时。这里我将介绍如何使用`nn.RNN`，包括初始化参数、准备输入数据以及前向传播。
 
 **初始化`nn.RNN`**
 
 当你初始化`nn.RNN`时，需要指定几个关键的参数：
 
-- `input_size`：输入特征的数量。
-- `hidden_size`：RNN隐藏层的特征数量。
-- `num_layers`（可选）：RNN的层数，默认为1。
-- 其他可选参数，如`nonlinearity`（选择激活函数，默认是`'tanh'`），`batch_first`（默认为`False`，如果设置为`True`，则输入输出的数据格式为`(batch, seq, feature)`），等等。
+- **`input_size`：输入特征的数量。**
+- **`hidden_size`：RNN隐藏层的特征数量。**
+- **`num_layers`（可选）：RNN的层数，默认为1。**
+- 其他可选参数，如**`nonlinearity`（选择激活函数，默认是`'tanh'`）**，`batch_first`（默认为`False`，如果设置为`True`，则输入输出的数据格式为`(batch, seq, feature)`），等等。
 
 **准备输入数据**
 
-RNN期望的输入是一个三维张量，其形状为`(seq_len, batch, input_size)`，除非你将`batch_first=True`传递给RNN构造函数，在这种情况下输入形状应该是`(batch, seq_len, input_size)`。
+**RNN期望的输入是一个三维张量，其形状为`(seq_len, batch, input_size)`，除非你将`batch_first=True`传递给RNN构造函数，在这种情况下输入形状应该是`(batch, seq_len, input_size)`。**
 
 示例：随机数据输入
 
@@ -5487,10 +5526,12 @@ RNN期望的输入是一个三维张量，其形状为`(seq_len, batch, input_si
 
 假设我们想要处理一个序列长度为5的批次，每个序列有3个特征，并且我们设定隐藏层的大小为10。
 
+<img src="./assets/image-20240317165528202.png" alt="image-20240317165528202" style="zoom:67%;" />
+
 1. **初始化`nn.RNN`：**
    - `input_size=3`意味着每个时间步的**输入$x_t$的向量大小是3**。这意味着，无论你是在处理词向量、特征向量还是任何其他形式的输入数据，每个时间步的输入都应该是一个3维向量。
    - `hidden_size=10`表示隐藏状态**$h_t$的向量大小是10**。这决定了RNN中隐藏层的维度。每个时间步更新时，隐藏状态的计算都会产生一个10维的向量，这个向量携带了至当前时间步为止序列的信息。
-   - `num_layers=1`指的是RNN网络堆叠的层数。对于最简单的RNN，我们通常使用一层，但是在复杂的任务中，可能会使用多层RNN堆叠起来，形成一个更深的模型。
+   - `num_layers=1`指的是RNN网络堆叠的层数。**对于最简单的RNN，我们通常使用一层**，但是在复杂的任务中，可能会使用多层RNN堆叠起来，形成一个更深的模型。
 ```python
 rnn = nn.RNN(input_size=3, hidden_size=10, num_layers=1, batch_first=True)
 ```
@@ -5557,7 +5598,7 @@ print(W_ih.shape, W_hh.shape, b_ih.shape, b_hh.shape)
      `output`张量包含的是RNN在每个时间步产生的隐藏状态$h_t$的集合。在很多情况下，这些隐藏状态可以直接作为输出使用，尤其是当RNN被用于特定任务如特征提取时。然而，要注意的是，这些隐藏状态**$h_t$可以经过额外的处理**（如通过额外的网络层）来产生最终的预测输出$y_t$。在很多应用中，比如分类、回归或序列生成任务，我们可能会在RNN的基础上添加额外的层（例如全连接层）来将隐藏状态$h_t$转换为具体任务所需的输出格式$y_t$。
 
   简而言之，RNN的**`output`张量表示了每个时间步的隐藏状态$h_t$**，它们是模型在处理序列时每一步的内部表示。如果需要根据这些隐藏状态计算特定任务的输出$y_t$，通常需要在RNN之后添加额外的处理层。
-- `hidden`的形状是`torch.Size([1, 2, 10])`，这表示最后一个时间步的隐藏状态，其中1表示RNN层的数量，2是批次大小，10是隐藏层的特征数量。
+- `hidden`的形状是`torch.Size([1, 2, 10])`，**这表示最后一个时间步的隐藏状态**，其中1表示RNN层的数量，2是批次大小，10是隐藏层的特征数量。
 
 
 
@@ -5597,6 +5638,10 @@ print(W_xh.shape, W_hh.shape, b_h.shape)# torch.Size([10, 3]) torch.Size([10, 10
 
 <img src="./assets/image-20240317165528202.png" alt="image-20240317165528202" style="zoom:67%;" />
 
+
+
+- `l0`表示**这些参数属于第一层（索引从0开始）的RNN层。**如果一个RNN有多个层（例如，`num_layers > 1`），那么对于每一层，都会有一组相应的参数，如`weight_ih_l1`和`weight_hh_l1`表示第二层的权重，以此类推。
+
 - **$W_{xh}$：输入到隐藏状态的权重矩阵**
   - 形状：`[10, 3]`。这是因为每个输入向量的大小为3，而隐藏状态的大小（即隐藏层的特征数量）为10。$W_{xh}$负责将输入向量从3维映射到10维的隐藏状态空间。
 
@@ -5607,6 +5652,7 @@ print(W_xh.shape, W_hh.shape, b_h.shape)# torch.Size([10, 3]) torch.Size([10, 10
    - 形状：`[10]`。偏置项是加到激活函数之前的权重和的，用于增加模型的灵活性和偏移能力。由于隐藏状态的大小为10，所以偏置项也是10维的。
 
 **手动实现RNN前向传播**
+![image-20240318152301132](./assets/image-20240318152301132.png)
 
 接着，我们将定义一个函数`manual_rnn_forward`来模拟RNN的前向传播过程。
 
@@ -5627,6 +5673,7 @@ def manual_rnn_forward(X, W_xh, W_hh, b_h):
         outputs.append(h_t.unsqueeze(0))
         h_prev = h_t
 
+    print("return:",len(outputs),outputs[0].shape,torch.cat(outputs, dim=0).shape, h_t.unsqueeze(0).shape)
     return torch.cat(outputs, dim=0), h_t.unsqueeze(0)
 
 # 获取单个批次的输入数据
@@ -5687,135 +5734,11 @@ torch.allclose(a, b, atol=tolerance)
 
 #### RNN拟合正弦波
 
-要使用PyTorch实现一个简单的RNN来预测正弦波形的未来值，我们将遵循以下步骤：
+在传统的监督学习任务中，如回归或分类，模型确实是基于输入$x$来预测一个标签或输出$f(x)$。然而，在处理序列数据，特别是进行序列生成或预测任务时，模型的目标变成了基于序列的先前元素来预测序列的下一个元素。
 
-1. 生成正弦波数据集。
-2. 定义RNN模型。
-3. 训练模型。
-4. 使用训练好的模型进行预测。
-5. 绘制实际结果与预测结果的对比图。
+在这个正弦波预测的例子中，模型接收的输入$y_{t-1}$实际上是序列中的一个元素，而模型的任务是预测该序列的下一个元素$y_t$。换句话说，给定序列的前$n$个值，模型需要预测第$n+1$个值。这种类型的任务通常称为时间序列预测。
 
-我们先从生成正弦波数据集开始，然后逐步实现上述步骤。
-
-1. **生成正弦波数据集**
-
-我们将创建一个简单的正弦波数据集。这个数据集将用于训练我们的RNN模型。数据集将包含一系列的正弦波点，我们的目标是使用过去的几个点来预测下一个点的值。
-
-**2. 定义RNN模型**
-
-接着，我们将定义一个简单的RNN模型。这个模型将包含一个RNN层，后面是一个线性层，用于输出预测值。
-
-**3. 训练模型**
-
-然后，我们将使用MSE（均方误差）损失函数和Adam优化器来训练我们的模型。我们将通过迭代地向模型提供输入序列和目标输出来完成训练。
-
-**4. 进行预测**
-
-训练完成后，我们将使用我们的模型对数据集中的序列进行预测，并将预测结果与实际值进行比较。
-
-**5. 绘制结果**
-
-最后，我们将绘制一个图表，展示模型预测的结果和实际正弦波的对比，以便直观地评估模型的性能。
-
-```py
-import numpy as np
-import matplotlib.pyplot as plt
-import torch
-import torch.nn as nn
-from torch.autograd import Variable
-
-# 生成正弦波数据集
-np.random.seed(42)
-x = np.linspace(0, 100, 1000)
-y = np.sin(x)
-
-# 将数据转换为PyTorch张量
-X = torch.tensor(y[:-1], dtype=torch.float32).view(-1, 1, 1)
-Y = torch.tensor(y[1:], dtype=torch.float32).view(-1, 1, 1)
-
-# 可视化部分数据集
-plt.figure(figsize=(10,5))
-plt.plot(x[:100], y[:100], label='Sin wave')
-plt.title('Sin wave data')
-plt.legend()
-plt.show()
-
-class SimpleRNN(nn.Module):
-    def __init__(self, input_size, hidden_size, output_size):
-        super(SimpleRNN, self).__init__()
-        self.rnn = nn.RNN(input_size=input_size, hidden_size=hidden_size, batch_first=True)
-        self.linear = nn.Linear(in_features=hidden_size, out_features=output_size)
-
-    def forward(self, x):
-        x, _ = self.rnn(x)
-        x = self.linear(x)
-        return x
-
-
-# 模型参数
-input_size = 1
-hidden_size = 100
-output_size = 1
-
-# 实例化模型
-model = SimpleRNN(input_size=input_size, hidden_size=hidden_size, output_size=output_size)
-model
-
-# 训练参数
-learning_rate = 0.01
-epochs = 150
-
-# 损失函数和优化器
-criterion = nn.MSELoss()
-optimizer = torch.optim.Adam(model.parameters(), lr=learning_rate)
-
-# 训练模型
-losses = []  # 用于记录每个epoch的损失值
-for epoch in range(epochs):
-    model.train()
-    optimizer.zero_grad()  # 清除之前的梯度
-    output = model(X)  # 前向传播
-    loss = criterion(output, Y)  # 计算损失
-    loss.backward()  # 反向传播
-    optimizer.step()  # 更新参数
-
-    losses.append(loss.item())
-    if epoch % 10 == 0:
-        print(f'Epoch [{epoch + 1}/{epochs}], Loss: {loss.item():.4f}')
-
-# 绘制损失下降图
-plt.figure(figsize=(10, 5))
-plt.plot(losses, label='Training Loss')
-plt.title('Training Loss')
-plt.xlabel('Epoch')
-plt.ylabel('Loss')
-plt.legend()
-plt.show()
-
-# 生成测试数据集
-x_test = np.linspace(100, 110, 100)
-y_test = np.sin(x_test)
-
-# 将测试数据转换为PyTorch张量
-X_test = torch.tensor(y_test[:-1], dtype=torch.float32).view(-1, 1, 1)
-
-# 使用模型进行预测
-model.eval()  # 确保模型处于评估模式
-with torch.no_grad():
-    predictions_test = model(X_test).view(-1).numpy()
-
-# 绘制实际值和预测值的对比图
-plt.figure(figsize=(10,5))
-plt.plot(x_test[:-1], y_test[:-1], label='Actual Sin wave', color='blue')
-plt.plot(x_test[:-1], predictions_test, label='Predicted Sin wave', color='red', linestyle='--')
-plt.title('Sin wave prediction on test data (x in [100, 110])')
-plt.xlabel('x')
-plt.ylabel('sin(x)')
-plt.legend()
-plt.show()
-```
-
-#### 生成数据集
+**生成数据集**
 
 首先，我们生成正弦波数据集。
 
@@ -5825,14 +5748,16 @@ import matplotlib.pyplot as plt
 import torch
 import torch.nn as nn
 from torch.autograd import Variable
+
 # 生成正弦波数据集
-np.random.seed(42)
+torch.manual_seed(44)  # 设置随机种子，保证每次运行结果一致
 x = np.linspace(0, 100, 1000)
 y = np.sin(x)
-print("shape of x:",x.shape)#shape of x: (1000,),也就是一行的向量
+print("shape of x:",x.shape)
 print("x",x[:20])
-print("shape of y:",y.shape)#shape of y: (1000,)
+print("shape of y:",y.shape)
 print("y",y[:20])
+
 # 将数据转换为PyTorch张量
 X = torch.tensor(y[:-1], dtype=torch.float32).view(-1, 1, 1)
 Y = torch.tensor(y[1:], dtype=torch.float32).view(-1, 1, 1)
@@ -5848,11 +5773,10 @@ print("Y",Y[:20])
 
 解释：
 
-- 在NumPy中使用`np.random.seed(42)`设定随机数种子是为了确保实验结果的**可重复性**。如果使用相同的种子，无论运行多少次，生成的随机数序列都将是相同的。`42`经常被程序员和科技爱好者作为一个随机数种子或示例数字使用，可以去查找背后的故事。
 - `np.linspace`生成了**1000个介于0到100之间的均匀间隔的点**。
 - `np.sin(x)`是**对数组`x`中的每一个元素应用正弦函数**，得到一个形状与`x`相同的数组。
 - 在NumPy中，`(1000,)`表示的是一个含有1000个元素的一维数组。
-- `X`是从`y`中**除了最后一个元素外所有元素**创建的PyTorch张量，并且我们通过`.view(-1, 1, 1)`调整了它的形状。`-1`在这里表示自动计算这个维度的大小，使得总的元素数保持不变。因此，`X`的形状应该是`(999, 1, 1)`，表示有999个时间步，每个时间步有1个特征，每个特征是1维的。
+- `X`是从`y`中**除了最后一个元素外所有元素**创建的PyTorch张量，并且我们通过`.view(-1, 1, 1)`调整了它的形状。`-1`在这里表示自动计算这个维度的大小，使得总的元素数保持不变。因此，`X`的形状应该是`(999, 1, 1)`，表示有999个时间步，每个时间步有1个特征，总共只有一个批次。
 - `Y`与`X`类似，也是从`y`中创建的，但包含的是**从第二个元素到最后一个元素。**因此，`Y`的形状也是`(999, 1, 1)`，与`X`相同。
 - `X`和`Y`的值被微微错开（即`X`是从`y`的第一个元素到倒数第二个元素，而`Y`是从`y`的第二个元素到最后一个元素），是为了**创建一个预测任务：给定当前的`sin`值（通过`X`表示），预测下一个时间点的`sin`值（通过`Y`表示）**。这种设置模仿了许多实际场景中的序列预测任务，例如，根据过去的天气数据预测未来的天气，或者根据过去的股价预测未来的股价。
 - 对于时刻`t`,**`X[t]=sin(t)`而`Y[t]=sin(t+1)`。**
@@ -5876,13 +5800,14 @@ print("Y",Y[:20])
 class SimpleRNN(nn.Module):
     def __init__(self, input_size, hidden_size, output_size):
         super(SimpleRNN, self).__init__()
-        self.rnn = nn.RNN(input_size=input_size, hidden_size=hidden_size, batch_first=True)
+        self.rnn = nn.RNN(input_size=input_size, hidden_size=hidden_size)
         self.linear = nn.Linear(in_features=hidden_size, out_features=output_size)
-    
+
     def forward(self, x):
         x, _ = self.rnn(x)
         x = self.linear(x)
         return x
+
 
 # 模型参数
 input_size = 1
@@ -5891,13 +5816,40 @@ output_size = 1
 
 # 实例化模型
 model = SimpleRNN(input_size=input_size, hidden_size=hidden_size, output_size=output_size)
-model
 
 ```
 
-![image-20240314095958173](.\assets\image-20240314095958173.png)
+**`SimpleRNN`类继承自`nn.Module`类**，这是PyTorch中所有神经网络模块的基类。
+
+通过调用`super().__init__()`，`SimpleRNN`类的构造器可以**调用其父类`nn.Module`的构造器**，这是初始化父类对象的标准方式。
+
+- `input_size`：每个时间步的输入特征数量。在这个例子中，**每个时间步的输入是正弦波的一个值，因此`input_size=1`。**
+- `hidden_size`：RNN隐藏层的特征数量。这决定了隐藏状态的维度，也就是RNN内部每个时间步计算得到的向量的大小。
+  - **没有`batch_first=True`：此时RNN期望的输入是一个三维张量，其形状为`(seq_len, batch, input_size)`，恰好对应输入的张量形状`[999,1,1]`。因为只有一个曲线需要预测，批次数为1。在每一个时间点上，只有一个输入，也就是$x_t$`=sin(t)`，因此`input_size=1`。总共有999个时间点，因此`seq_len=999`。**
+  - 之前说过：RNN期望的输入是一个三维张量，其形状为`(seq_len, batch, input_size)`，除非你将`batch_first=True`传递给RNN构造函数，在这种情况下输入形状应该是`(batch, seq_len, input_size)`。
+
+
+**RNN层处理后返回两个值：输出【对应手写rnn当中的outputs】和最新的隐藏状态【对应手写rnn当中的$h_t$】。**在这里，我们只关心输出（也用`x`表示），而忽略了最新的隐藏状态（用`_`表示，这是一个常见的习惯用法，用于忽略不需要的返回值）。
+
+**`nn.Linear`创建了一个线性层（全连接层），将RNN的输出映射到最终的预测值。**它的参数含义如下：
+
+- `in_features`：**输入特征的数量，应与RNN隐藏层的输出大小相匹配**，即`hidden_size=10`。
+- `out_features`：**输出特征的数量**。在这个例子中，**我们的目标是预测下一个正弦波的值，因此输出大小为1**，即`output_size=1`。
+- 之前说过，**线性层的本质是：将一个向量(样本)映射到另一个向量。**
+- 给定输入矩阵$X$，线性层的权重$W$和偏置$b$，**线性层的输出$Y$可以通过下面的公式计算：**
+
+  $$ Y = XW^T + b $$
+
+  这里：
+
+  - **$X$ 是输入矩阵，假设其形状为$[N, \text{in\_features}]$，其中$N$是批量大小【样本数】，$\text{in\_features}$是每个输入样本的特征数量。**
+  - **$W$ 是权重矩阵，其形状为$[\text{out\_features}, \text{in\_features}]$，其中$\text{out\_features}$是输出特征的数量。**
+  - **$b$ 是偏置向量，形状为$[\text{out\_features}]$。**
+  - $Y$ 是输出矩阵，形状为$[N, \text{out\_features}]$
 
 我们已经定义了一个简单的RNN模型，它由一个RNN层和一个线性层组成。接下来，我们将训练这个模型来预测正弦波的未来值。
+
+![image-20240318232638103](./assets/image-20240318232638103.png)
 
 **训练模型**
 
@@ -5907,39 +5859,39 @@ model
 
 ```py
 # 训练参数
-learning_rate = 0.01
-epochs = 150
+learning_rate = 0.01 # 学习率
+epochs = 150 # 训练轮数
 
 # 损失函数和优化器
-criterion = nn.MSELoss()
-optimizer = torch.optim.Adam(model.parameters(), lr=learning_rate)
+criterion = nn.MSELoss() # 均方误差，计算方法：(y_true - y_pred) ** 2 求和取平均
+optimizer = torch.optim.Adam(model.parameters(), lr=learning_rate) # Adam优化器
 
 # 训练模型
 losses = []  # 用于记录每个epoch的损失值
 for epoch in range(epochs):
-    model.train()
+    model.train() # 确保模型处于训练模式，因为PyTorch中有一些层在训练和评估模式下行为不同
     optimizer.zero_grad()  # 清除之前的梯度
     output = model(X)  # 前向传播
     loss = criterion(output, Y)  # 计算损失
     loss.backward()  # 反向传播
-    optimizer.step()  # 更新参数
-    
-    losses.append(loss.item())
-    if epoch % 10 == 0:
-        print(f'Epoch [{epoch+1}/{epochs}], Loss: {loss.item():.4f}')
+    optimizer.step()  # 更新参数，主要工作之一确实是梯度下降
+
+    losses.append(loss.item()) # 记录损失值
+    if epoch % 10 == 0: # 每10个epoch打印一次损失值
+        print(f'Epoch [{epoch + 1}/{epochs}], Loss: {loss.item():.4f}')
 
 # 绘制损失下降图
-plt.figure(figsize=(10,5))
-plt.plot(losses, label='Training Loss')
-plt.title('Training Loss')
-plt.xlabel('Epoch')
-plt.ylabel('Loss')
-plt.legend()
-plt.show()
-
+plt.figure(figsize=(10, 5)) # 设置画布大小
+plt.plot(losses, label='Training Loss') # 绘制损失值曲线
+plt.title('Training Loss') # 设置图标题
+plt.xlabel('Epoch') # 设置x轴标签
+plt.ylabel('Loss') # 设置y轴标签
+plt.legend() # 显示图例
+plt.show() # 显示图像
 ```
 
 训练过程已经完成，我们观察到随着训练的进行，损失值逐渐降低，这表明模型在学习如何预测正弦波的未来值。
+![image-20240318173149611](./assets/image-20240318173149611.png)
 
 **进行预测并绘制结果**
 
@@ -5949,29 +5901,30 @@ plt.show()
 
 ```py
 # 生成测试数据集
-x_test = np.linspace(100, 110, 100)
-y_test = np.sin(x_test)
+x_test = np.linspace(100, 110, 100)# 生成100个点,从100到110之间
+y_test = np.sin(x_test)# 生成对应的sin值
 
 # 将测试数据转换为PyTorch张量
 X_test = torch.tensor(y_test[:-1], dtype=torch.float32).view(-1, 1, 1)
+# 从测试数据中取出前999个点，转换为PyTorch张量，形状为(999, 1, 1)
 
 # 使用模型进行预测
 model.eval()  # 确保模型处于评估模式
 with torch.no_grad():
-    predictions_test = model(X_test).view(-1).numpy()
+    predictions_test = model(X_test).view(-1).numpy()# 使用模型进行预测，得到的预测值的shape为(999, 1, 1)，需要将其转换为一维数组
 
 # 绘制实际值和预测值的对比图
-plt.figure(figsize=(10,5))
-plt.plot(x_test[:-1], y_test[:-1], label='Actual Sin wave', color='blue')
-plt.plot(x_test[:-1], predictions_test, label='Predicted Sin wave', color='red', linestyle='--')
-plt.title('Sin wave prediction on test data (x in [100, 110])')
-plt.xlabel('x')
-plt.ylabel('sin(x)')
-plt.legend()
-plt.show()
+plt.figure(figsize=(10,5))# 设置画布大小
+plt.plot(x_test[:-1], y_test[1:], label='Actual Sin wave', color='blue')# 绘制实际值
+plt.plot(x_test[:-1], predictions_test, label='Predicted Sin wave', color='red', linestyle='--')# 绘制预测值
+plt.title('Sin wave prediction on test data (x in [100, 110])')# 设置图标题
+plt.xlabel('x')# 设置x轴标签
+plt.ylabel('sin(x)')# 设置y轴标签
+plt.legend()# 显示图例
+plt.show()# 显示图像
 ```
 
-![image-20240314115157132](.\assets\image-20240314115157132.png)
+![image-20240318173023531](./assets/image-20240318173023531.png)
 
 在对比图中，我们可以看到蓝色曲线表示实际的正弦波，而红色虚线表示我们的RNN模型预测的正弦波。虽然存在一些差异，但整体上模型能够较好地捕捉到正弦波的模式并进行预测。
 
@@ -6020,6 +5973,17 @@ GRU的更新过程可以分为三个主要步骤：更新门计算、重置门�
 
 
 
+#### 配置环境
+
+```py
+pip install xmnlp
+```
+
+使用`conda install xmnlp`可能会报错
+
+
+
+![image-20240318084918171](./assets/image-20240318084918171.png)
 
 
 
@@ -6027,8 +5991,32 @@ GRU的更新过程可以分为三个主要步骤：更新门计算、重置门�
 
 
 
+#### 五个性能指标
 
+假设我们有一个机器学习模型，用于判断电子邮件是否为垃圾邮件（1表示垃圾邮件，0表示非垃圾邮件）。在一个测试集上，我们有以下结果：
 
+- 真正例（TP）: 90（模型预测为垃圾邮件，且实际为垃圾邮件的邮件数量）
+- 假正例（FP）: 10（模型预测为垃圾邮件，但实际非垃圾邮件的邮件数量）
+- 真负例（TN）: 80（模型预测为非垃圾邮件，且实际为非垃圾邮件的邮件数量）
+- 假负例（FN）: 20（模型预测为非垃圾邮件，但实际为垃圾邮件的邮件数量）
+
+基于这些信息，我们可以计算上述提到的五个性能指标：
+
+1. **精确率(Precision)**: 表示预测为垃圾邮件中，实际为垃圾邮件的比例。
+$$Precision = \frac{TP}{TP + FP} = \frac{90}{90 + 10} = 0.9$$
+
+2. **召回率(Recall)**: 表示实际为垃圾邮件中，被正确预测为垃圾邮件的比例。
+$$Recall = \frac{TP}{TP + FN} = \frac{90}{90 + 20} = 0.818$$
+
+3. **F1分数**: 是精确率和召回率的调和平均值，用于衡量二者的平衡性。
+$$F1 = 2 \cdot \frac{Precision \cdot Recall}{Precision + Recall} = 2 \cdot \frac{0.9 \cdot 0.818}{0.9 + 0.818} \approx 0.857$$
+
+4. **准确率(Accuracy)**: 表示所有预测正确（无论正负）的邮件占总邮件的比例。
+$$Accuracy = \frac{TP + TN}{TP + TN + FP + FN} = \frac{90 + 80}{90 + 80 + 10 + 20} = 0.85$$
+
+5. **AUC**: 由于AUC是基于ROC曲线计算的，这里无法直接从这些数据计算AUC值。但是AUC值将反映模型在不同阈值下区分垃圾邮件和非垃圾邮件的能力。理论上，如果模型很好地区分了垃圾邮件和非垃圾邮件，AUC值应接近于1；如果模型仅做随机猜测，AUC值应接近于0.5。
+
+这个例子说明了如何根据模型的预测结果和实际情况，计算出不同的性能评估指标，以便从多个角度评价模型的性能。
 
 
 
