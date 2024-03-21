@@ -1648,29 +1648,31 @@ $$ Y = XW^T + b $$
 import torch
 import torch.nn as nn
 
+torch.manual_seed(42)
+
 # 定义输入数据
 input_data = torch.randn(2, 4)  # 2个样本，4个特征
 print('Input Data:', input_data)
-'''tensor([[-0.0651,  0.1765, -0.5925, -0.6215],
-        [-0.4160,  0.4052,  0.6214,  0.0385]])'''
+'''Input Data: tensor([[ 0.3367,  0.1288,  0.2345,  0.2303],
+        [-1.1229, -0.1863,  2.2082, -0.6380]])'''
 
 # nn.Linear: 全连接层/线性层
 linear_layer = nn.Linear(4, 3)  # 输入特征维度为4，输出特征维度为3
 print('Linear Layer:',linear_layer.weight.data, linear_layer.bias.data)
-'''tensor([[-0.3712,  0.1380,  0.1242, -0.1603],
-        [-0.0283,  0.3212, -0.4816,  0.2166],
-        [-0.1501, -0.2759,  0.1762, -0.0754]])'''
-'''tensor([-0.2100, -0.4055, -0.2082])'''
+'''Linear Layer: tensor([[ 0.3854,  0.0739, -0.2334,  0.1274],
+        [-0.2304, -0.0586, -0.2031,  0.3317],
+        [-0.3947, -0.2305, -0.1412, -0.3006]]) tensor([ 0.0472, -0.4938,  0.4516])'''
 
 output = linear_layer(input_data)
 print("Linear Layer Output:")
 print(output)
 print(input_data@linear_layer.weight.t()+linear_layer.bias)
 print()
-'''tensor([[-0.1355, -0.1963, -0.3046],
-        [ 0.0712, -0.5546, -0.1509]], grad_fn=<AddmmBackward0>)'''
-'''tensor([[-0.1355, -0.1963, -0.3046],
-        [ 0.0712, -0.5546, -0.1509]], grad_fn=<AddBackward0>)'''
+'''Linear Layer Output:
+tensor([[ 0.1611, -0.5502,  0.1866],
+        [-0.9961, -0.8843,  0.8177]], grad_fn=<AddmmBackward0>)
+tensor([[ 0.1611, -0.5502,  0.1866],
+        [-0.9961, -0.8843,  0.8177]], grad_fn=<AddBackward0>)'''
 ```
 
 #### 意义是什么?
@@ -1706,6 +1708,7 @@ print(output_data)
 ```
 
 **本质：**
+
 ![image-20240208133706466](.\assets\image-20240208133706466.png)
 
 - **神经元**: 上述神经网络有4个输入神经元，3个输出神经元。
@@ -1736,6 +1739,74 @@ output = linear_layer(input_data)
 ```
 
 在神经网络进行了这个变换之后，对于每一个样本，都会有一个对应输出。
+
+#### 三维张量输入
+
+当输入`X`是一个三维张量时【后面会遇到】，`nn.Linear`层仍然可以按照线性变换 $y = XW^T + b$ 的方式工作，但这里的处理方式会略有不同。
+
+假设我们有一个三维张量 `X`，其形状为 `(N, L, D)`，其中：
+
+- `N` 是批次大小（batch size），代表了数据集中独立元素的数量。
+- `L` 是序列长度，对于非序列数据，这可以是任何其他逻辑维度。
+- `D` 是每个元素的特征数量。
+
+现在，我们想通过一个 `nn.Linear` 层，其有 `D` 个输入特征和 `M` 个输出特征，即 `in_features=D` 和 `out_features=M`。
+
+在这种情况下，**`nn.Linear` 层会对输入张量的每一个 `(L, D)` 形状的切片独立地应用线性变换 $y = XW^T + b$，**其中 `W` 是权重矩阵，`b` 是偏置向量。最终的输出将会是一个 `(N, L, M)` 形状的张量，其中每个 `(L, M)` 形状的切片都是原始 `(L, D)` 切片经过变换后的结果。
+
+![image-20240320155330142](./assets/image-20240320155330142.png)
+
+```py
+import torch
+import torch.nn as nn
+
+# 创建输入数据矩阵 input_data
+input_data = torch.tensor([[[1, 2, 3, 1],
+                           [0, 1, 2, 0]],
+
+                           [[1, 2, 3, 1],
+                           [0, 1, 2, 0]]], dtype=torch.float)  # 注意：输入数据需要是float类型，因为要进行权重赋值
+
+# 创建权重矩阵 weight
+weight = torch.tensor([[1, 0, 1, 2],
+                       [2, 1, 1, 0],
+                       [0, 2, 2, 1]], dtype=torch.float)  # 注意：权重需要是float类型
+
+# 创建偏置项向量 bias
+bias = torch.tensor([1, 2, 3], dtype=torch.float)  # 注意：偏置需要是float类型
+
+# 定义一个权重相同的全连接层
+linear_layer = nn.Linear(4, 3, bias=True)
+
+# 将自定义的权重和偏置赋值给线性层
+with torch.no_grad():  # 不跟踪这些操作的梯度，否则报错
+    linear_layer.weight.copy_(weight)  # 使用copy_方法
+    linear_layer.bias.copy_(bias)
+
+# 使用自定义权重和偏置的线性层进行前向传播计算
+output = linear_layer(input_data)
+
+print("Linear Layer Output:")
+print(output)
+
+# 验证自定义权重和偏置的正确性
+expected_output = input_data @ weight.t() + bias
+print("Expected Output (Manual Calculation):")
+print(expected_output)
+'''tensor([[[ 7.,  9., 14.],
+         [ 3.,  5.,  9.]],
+
+        [[ 7.,  9., 14.],
+         [ 3.,  5.,  9.]]])'''
+```
+
+
+
+
+
+
+
+
 
 #### 图像表示:
 
@@ -3138,6 +3209,7 @@ plt.show()
 ```
 
 在这段代码中，我们首先绘制了数据点，然后创建了一个网格来代表特征空间，并使用模型的权重和偏置来计算网格上每个点的预测值，从而绘制了预测平面。
+
 ![image-20240211180135422](.\assets\image-20240211180135422.png)
 
 **为什么是一个平面?**
@@ -3304,16 +3376,19 @@ $$ z = \frac{(x - \mu)}{\sigma}$$
 
 **精度**: `float32` 是一种平衡了计算效率和精度的数据类型。对于大多数深度学习任务，`float32` 提供的精度已经足够。
 
-#### 设计神经网络
+**设计神经网络**
 
 不再赘述，和之前完全一样,继承自nn，输入13个特征，输出1个特征的网络。
-#### 定义损失函数
+
+**定义损失函数**
 
 不再赘述,经典MSELoss均方误差损失函数
-#### 训练
+
+**训练**
 
 不再赘述,迭代一千次，每次四个步骤:用训练数据进行预测，和实际值对比计算损失，计算损失对权重的梯度，梯度下降。其中记得zero_grad()保证梯度正确计算，每迭代100次输出预测误差。
-#### 评估
+
+**评估**
 
 1. **设置模型为评估模式 (`model.eval()`)**:
     - 这一步通过调用 `eval()` 方法将模型设置为评估模式。
@@ -3341,6 +3416,134 @@ $$ z = \frac{(x - \mu)}{\sigma}$$
     $$ \text{MSE} = \frac{1}{n} \sum_{i=1}^{n} (y_i - \hat{y}_i)^2 $$
     
     MSE 作为损失函数的一个重要特性是，它会对较大的误差赋予更高的惩罚（由于平方项的影响），这有助于模型更加关注和减少大的预测误差。
+
+### 分类任务
+
+#### One-hot 编码
+
+对于多分类问题，one-hot 编码是一种将类别标签转换为二进制（0和1）形式的方法。每个标签转换为一个与类别数量相等长度的向量，其中真实类别对应的元素设为 1，其余设为 0。
+
+在我们的例子中，假设有三个类别，真实类别是第一个类别(比如说一张照片可以是猫、狗、人，实际上是猫)，所以 one-hot 编码的标签将是:
+
+```plaintext
+one-hot label: [1, 0, 0]
+```
+
+#### Softmax的概率意义
+
+$softmax(xi) = \frac{e^{xi}}{\sum_{j} e^{xj}}$
+
+```python
+import torch
+
+# 假设我们有一个三类分类问题的 logits【在机器学习和深度学习领域，"logits"这个术语通常指模型输出层之前的原始预测值，也就是未经过归一化（如 softmax 函数）处理的预测值。】
+logits = torch.tensor([[2.0, 1.0, 0.1]])
+print(torch.softmax(logits, dim=1))
+'''tensor([[0.6590, 0.2424, 0.0986]])'''
+```
+
+解释 Softmax 输出
+
+- **softmax(logits, dim=1)**：这个函数将 `logits` 张量中的值转换为概率。`dim=1` 指定了 softmax 函数沿着张量的第二个维度（即每行内部）进行计算。
+
+- **输出的含义**：softmax 函数的输出是一个概率分布，它表示模型对每个类别的预测概率。在这个例子中，输出张量 `[[0.6590, 0.2424, 0.0986]]` 表示模型预测第一个类别的概率为约 65.9%，第二个类别的概率为约 24.24%，第三个类别的概率为约 9.86%。
+
+概率解释
+
+1. **第一个类别（65.9%）**：模型认为输入最有可能属于第一个类别。
+2. **第二个类别（24.24%）**：第二个类别是模型的次要选择。
+3. **第三个类别（9.86%）**：模型认为输入属于第三个类别的可能性最低。
+
+在多类分类问题中，softmax 函数确保输出的概率总和为 1，并且每个类别的概率都介于 0 到 1 之间。这使得 softmax 函数成为分类问题中常用的激活函数。在这种情况下，通常选择概率最高的类别作为模型的最终预测。
+
+#### Log Softmax 
+
+```python
+import torch
+
+# 假设我们有一个三类分类问题的 logits
+logits = torch.tensor([[2.0, 1.0, 0.1]])
+
+# 计算 Softmax
+softmax_probs = torch.exp(logits) / torch.sum(torch.exp(logits), dim=1, keepdim=True)
+
+# 计算 Log Softmax
+log_softmax_manual = torch.log(softmax_probs)
+
+print("Log Softmax (manual, unstable):", log_softmax_manual)
+print("Log Softmax (PyTorch):", torch.log_softmax(logits, dim=1))
+'''Log Softmax (PyTorch): tensor([[-0.4170, -1.4170, -2.3170]])'''
+
+```
+
+![image-20240220125644611](.\assets\image-20240220125644611.png)
+
+#### 计算交叉熵损失
+
+对于给定的例子，我们有3个类别的logits，并且已经计算出了Log Softmax的值。现在，假设实际的类别标签是0，1，和2，我们来计算每种情况下的交叉熵损失。
+
+**交叉熵损失的计算公式为：**
+
+$$ L = -\sum_{c=1}^{M} y_{o,c} \log(p_{o,c}) $$
+
+其中，
+
+- $M$ 是类别的数量，在这个例子中是3。
+
+- $y$ 是一个二元指示器（indicator）数组，如果类别 $c$ 是正确的分类，则 $y_{o,c} = 1$，否则为0。
+
+- $p$ 是预测的概率分布，由Softmax计算得到。
+
+- $o$ 是数据点的索引，在这个例子中，我们只有一个数据点。
+
+  ![image-20240320144620122](./assets/image-20240320144620122.png)
+
+**计算实际的分类0，1，2的交叉熵损失**
+
+假设实际分类是0：
+
+$$ L = -\log(p_{0,0}) $$
+
+根据PyTorch计算的Log Softmax值，对于类别0，Log Softmax值是$-0.4170$，所以交叉熵损失是：
+
+$$ L = -(-0.4170) = 0.4170 $$
+
+如果实际的分类是1，交叉熵损失为1.417，如果实际的分类是2，交叉熵损失为2.317。
+
+#### 为什么这样设计？
+
+交叉熵损失的设计考虑了概率分布的特性：**当预测概率$p_{o,c}$接近实际概率$y_{o,c}$时，损失越小；当预测概率与实际概率差距大时，损失越大。特别是，当实际标签的预测概率接近1时（即预测非常准确），损失接近0；当实际标签的预测概率很小（即预测不准确），损失会很大。**
+
+![image-20240320144708189](./assets/image-20240320144708189.png)
+
+**公式当中为什么有求和符号？**
+
+**求和符号使得损失函数可以无缝地应用于多标签分类问题**。在多标签分类中，一个实例可以同时属于多个类别，这意味着独热编码向量中可能有多个1。因此，求和符号确保了所有正确类别的负对数概率都被计算在内。
+
+**极端情况**
+**交叉熵为0的情况发生在模型对每个实例的分类完全正确且确信无疑的情况下。**这意味着对于正类实例，logits $z$ 应无限大接近正无穷；对于负类实例，logits $z$ 应无限大接近负无穷。实际上，这种情况在实践中几乎不可能达到，因为它要求模型对所有实例的分类都绝对准确且完全确定。
+
+#### 二分类
+
+![image-20240320151834099](./assets/image-20240320151834099.png)
+
+当交叉熵损失应用于二分类问题时，公式可以简化成一个非常熟悉的形式，这种形式特别是在逻辑回归中常见，也被称为二元交叉熵损失（Binary Cross-Entropy Loss）。这时，输出可以通过一个单一的概率值 $p$ 来表示，其中 **$p$ 表示样本属于类别 1 的预测概率**（相应地，$1-p$ 表示样本属于类别 0 的预测概率）。假设 **$y$ 是实际的标签**，其中 $y=1$ 表示正类，$y=0$ 表示负类，那么二元交叉熵损失的公式可以表示为：
+
+$$ L = -[y \log(p) + (1 - y) \log(1 - p)] $$
+
+这个公式的含义是：
+- **当实际标签 $y=1$ 时，损失函数简化为 $L = -\log(p)$，这意味着如果模型对正类的预测概率 $p$ 非常确定（接近 1），那么损失将会很小；如果模型对正类的预测概率不确定（$p$ 接近 0），那么损失将会很大。**
+- **相反地，当实际标签 $y=0$ 时，损失函数简化为 $L = -\log(1 - p)$。这时，如果模型对负类的预测概率 $1-p$ 非常确定（即 $p$ 接近 0），那么损失将会很小；如果模型对负类的预测概率不确定（即 $p$ 接近 1），那么损失将会很大。**
+
+二元交叉熵损失这样设计的目的是为了在二分类问题中有效地衡量模型预测的准确性。它直接对模型的输出概率进行惩罚，强调了对正确类别的概率预测的准确性。这种损失函数非常适合处理输出概率的模型，如逻辑回归和具有sigmoid激活函数的输出层的神经网络。
+
+注：在机器学习和深度学习的上下文中，当我们提到对数（log）函数，尤其是在计算Softmax函数的对数形式（即Log Softmax）时，我们通常指的是自然对数，其底数是 $e$（约等于2.71828）。因此，当我们说“log”时，实际上是指“ln”（自然对数）。在编程实现中，例如使用Python的NumPy或PyTorch库时，`log`函数（比如`numpy.log`或`torch.log`）也是指计算自然对数。
+
+**总结**
+
+- **二分类问题**：是多分类问题的一个特殊情况，类别总数为2。
+- **多分类问题**：每个实例只能被分到一个类别中，是多标签分类问题的一个特殊情况，其中每个实例恰好被分到一个类别中。
+- **多标签分类问题**：每个实例可以属于多个类别。
 
 ### 卷积神经网络
 
@@ -3567,129 +3770,6 @@ for epoch in range(num_epochs):
    - 输出形状变为 `[batch_size, 10]`。
 
 在这个网络中，卷积层负责提取图像的特征，池化层负责减少特征的空间尺寸（降维），而全连接层负责将这些特征映射到最终的分类结果。
-
-#### One-hot 编码
-
-对于多分类问题，one-hot 编码是一种将类别标签转换为二进制（0和1）形式的方法。每个标签转换为一个与类别数量相等长度的向量，其中真实类别对应的元素设为 1，其余设为 0。
-
-在我们的例子中，假设有三个类别，真实类别是第一个类别(比如说一张照片可以是猫、狗、人，实际上是猫)，所以 one-hot 编码的标签将是:
-
-```plaintext
-one-hot label: [1, 0, 0]
-```
-
-#### Softmax的概率意义
-
-$softmax(xi) = \frac{e^{xi}}{\sum_{j} e^{xj}}$
-
-```python
-import torch
-
-# 假设我们有一个三类分类问题的 logits
-logits = torch.tensor([[2.0, 1.0, 0.1]])
-print(torch.softmax(logits, dim=1))
-'''tensor([[0.6590, 0.2424, 0.0986]])'''
-```
-
-解释 Softmax 输出
-
-- **softmax(logits, dim=1)**：这个函数将 `logits` 张量中的值转换为概率。`dim=1` 指定了 softmax 函数沿着张量的第二个维度（即每行内部）进行计算。
-
-- **输出的含义**：softmax 函数的输出是一个概率分布，它表示模型对每个类别的预测概率。在这个例子中，输出张量 `[[0.6590, 0.2424, 0.0986]]` 表示模型预测第一个类别的概率为约 65.9%，第二个类别的概率为约 24.24%，第三个类别的概率为约 9.86%。
-
-概率解释
-
-1. **第一个类别（65.9%）**：模型认为输入最有可能属于第一个类别。
-2. **第二个类别（24.24%）**：第二个类别是模型的次要选择。
-3. **第三个类别（9.86%）**：模型认为输入属于第三个类别的可能性最低。
-
-在多类分类问题中，softmax 函数确保输出的概率总和为 1，并且每个类别的概率都介于 0 到 1 之间。这使得 softmax 函数成为分类问题中常用的激活函数。在这种情况下，通常选择概率最高的类别作为模型的最终预测。
-
-#### 不稳定版本的 Log Softmax 计算
-
-```python
-import torch
-
-# 假设我们有一个三类分类问题的 logits
-logits = torch.tensor([[2.0, 1.0, 0.1]])
-
-# 计算 Softmax
-softmax_probs = torch.exp(logits) / torch.sum(torch.exp(logits), dim=1, keepdim=True)
-
-# 计算 Log Softmax
-log_softmax_manual = torch.log(softmax_probs)
-
-print("Log Softmax (manual, unstable):", log_softmax_manual)
-print("Log Softmax (PyTorch):", torch.log_softmax(logits, dim=1))
-'''Log Softmax (PyTorch): tensor([[-0.4170, -1.4170, -2.3170]])'''
-
-```
-
-![image-20240220125644611](.\assets\image-20240220125644611.png)
-这种方法在理论上是正确的，因为它遵循了 softmax 和 log 函数的直接定义。然而，由于在实际计算中可能遇到的数值问题，特别是当处理很大的 logits 值时，这种方法可能导致数值溢出（即结果变成无穷大）或数值下溢（即结果趋近于零)。在实践中，通常推荐使用数值稳定的版本,也就是下面的这一个版本。
-
-#### CrossEntropyLoss交叉熵损失和负对数似然损失
-
-负对数似然损失NLL的英文全称是 "Negative Log Likelihood Loss"。这个损失函数在统计学和机器学习中广泛使用，尤其是在分类问题中。
-
-```python
-import torch
-import torch.nn.functional as F
-
-# 假设我们有一个三类分类问题的logits（模型输出的原始预测值）
-logits = torch.tensor([[2.0, 1.0, 0.1]])
-
-# 真实标签为第一个类别（类别索引为0）
-labels = torch.tensor([0])
-
-# 计算LogSoftmax（手动计算）
-max_logit = torch.max(logits, dim=1, keepdim=True).values
-print("max_logit",max_logit)
-
-logsumexp = torch.log(torch.sum(torch.exp(logits - max_logit), dim=1, keepdim=True)) + max_logit
-log_softmax_manual = logits - logsumexp
-print("log_softmax_manual",log_softmax_manual)
-'''log_softmax_manual tensor([[-0.4170, -1.4170, -2.3170]])'''
-
-# 计算交叉熵损失（手动计算）
-nll_loss_manual = -log_softmax_manual[0, labels]
-print("nll_loss_manual",nll_loss_manual)
-'''nll_loss_manual tensor([0.4170])'''
-
-# 使用PyTorch的库函数计算LogSoftmax和交叉熵损失
-log_softmax_lib = F.log_softmax(logits, dim=1)
-nll_loss_lib = F.nll_loss(log_softmax_lib, labels)#NLL Loss（负对数似然损失）
-cross_entropy_loss_lib = F.cross_entropy(logits, labels)
-
-# 输出计算结果进行比较
-print(log_softmax_lib, nll_loss_lib, cross_entropy_loss_lib)
-'''tensor([[-0.4170, -1.4170, -2.3170]]) tensor(0.4170) tensor(0.4170)'''
-```
-
-![image-20240212163648597](.\assets\image-20240212163648597.png)
-**LogSoftmax 计算**
-
-在手动计算中：
-- 我们首先找到最大的 logit（`max_logit`），用它来缩放 logits，减少数值不稳定性。
-- 然后，我们计算 `logsumexp`，即缩放后的 logits 的指数和的对数。
-- 最后，我们从原始 logits 中减去 `logsumexp` 来得到 `log_softmax_manual`。
-
-手动计算的 LogSoftmax 值为 `[[-0.4170, -1.4170, -2.3170]]`，对应于每个类别的概率对数。
-
-**交叉熵损失计算**
-
-交叉熵损失是负对数似然损失，计算方法是取**目标类别对应的 LogSoftmax 值的负值**。在这个例子中，因为真实类别是第一个类别（索引为 0），我们只取第一个类别的 LogSoftmax 值并取其相反数得到 `nll_loss_manual`。
-
-手动计算的交叉熵损失值为 `0.4170`。
-原理:损失值是选中的 log 概率的相反数。因此，如果**模型对实际标签的预测概率高(实际和预测一致)，损失值会低**（log 概率接近于 0，负数取反后趋近于 0）；反之，如果预测概率低，损失值会高。
-
-**库函数计算**
-
-我们也使用 PyTorch 库函数 `F.log_softmax` 来计算 LogSoftmax，和 `F.nll_loss` 及 `F.cross_entropy` 来计算交叉熵损失。
-
-库函数计算的 LogSoftmax 值也为 `[[-0.4170, -1.4170, -2.3170]]`，交叉熵损失值同样为 `0.4170`。
-
-这验证了手动计算和库函数计算是一致的，并且展示了如何执行交叉熵损失的计算。
 
 #### outputs 与 labels 形状的匹配
 
@@ -3970,6 +4050,84 @@ print(f'Accuracy of the model on the 10000 test images: {100 * correct / total}%
    - 输出形状：`[64, 10]`
 
 **训练和测试和之前手写数字识别一样，不再赘述**
+
+### 1维卷积
+
+
+
+![image-20240322070912312](./assets/image-20240322070912312.png)
+
+
+
+![image-20240322070950382](./assets/image-20240322070950382.png)
+
+```py
+import torch
+import torch.nn.functional as F
+
+
+# 创建一个Conv1d层并提取其权重和偏置
+conv1d_layer = torch.nn.Conv1d(in_channels=300, out_channels=64, kernel_size=3, stride=1, padding=1)
+conv1d_weight = conv1d_layer.weight.data
+conv1d_bias = conv1d_layer.bias.data
+
+
+# 创建一个输入张量
+input_tensor = torch.randn(2, 300, 100)  # 假设有1个样本，每个样本有300个通道，宽度为100
+
+# 使用PyTorch的Conv1d
+output_conv1d = conv1d_layer(input_tensor)
+
+#获取权重和偏置
+weights = conv1d_layer.weight.data
+bias = conv1d_layer.bias.data
+
+# 手动实现卷积的函数
+def manual_conv1d(input_tensor, weights, bias, stride=1, padding=1):
+    batch_size, in_channels, width = input_tensor.shape
+    out_channels, _, kernel_size = weights.shape
+
+    # 计算输出宽度
+    output_width = ((width + 2 * padding - kernel_size) // stride) + 1
+
+    # 应用padding
+    if padding > 0:
+        input_padded = F.pad(input_tensor, (padding, padding), "constant", 0)
+    else:
+        input_padded = input_tensor
+
+    # 初始化输出张量
+    output = torch.zeros(batch_size, out_channels, output_width)
+
+    # 执行卷积操作
+    for i in range(out_channels):
+        for j in range(output_width):
+            start = j * stride
+            end = start + kernel_size
+            # 对所有输入通道执行卷积并求和
+            output[:, i, j] = torch.sum(input_padded[:, :, start:end] * weights[i, :, :].unsqueeze(0), dim=(1, 2)) + \
+                              bias[i]
+
+    return output
+
+print("output_conv1d:", output_conv1d)
+
+# 应用手动卷积
+manual_conv1d_output = manual_conv1d(input_tensor, weights, bias, stride=1, padding=1)
+print("manual_conv1d_output:", manual_conv1d_output)
+
+# 比较结果
+print("Output close:", torch.allclose(output_conv1d, manual_conv1d_output, atol=1e-4))
+
+```
+
+
+
+![image-20240322071010895](./assets/image-20240322071010895.png)
+
+
+
+
 
 ### NLP初步
 
@@ -5482,7 +5640,7 @@ $$ h_t = f(W_h [x_t; h_{t-1}] + b_h) $$
 - $W_{xh}$的形状为$200 \times 10000$。
 - $W_{hh}$的形状为$200 \times 200$。
 - $b_h$是一个200维的向量。
-  ![image-20240317215312513](./assets/image-20240317215312513.png)
+- ![image-20240317215312513](./assets/image-20240317215312513.png)
 
 **拼接后的形状：**
 
@@ -5734,20 +5892,21 @@ torch.allclose(a, b, atol=tolerance)
 
 #### RNN拟合正弦波
 
-在传统的监督学习任务中，如回归或分类，模型确实是基于输入$x$来预测一个标签或输出$f(x)$。然而，在处理序列数据，特别是进行序列生成或预测任务时，模型的目标变成了基于序列的先前元素来预测序列的下一个元素。
+在传统的监督学习任务中，如回归或分类，模型是**基于输入$x$来预测一个标签或输出**$f(x)$。然而，在处理序列数据，特别是进行序列生成或预测任务时，**模型的目标变成了基于序列的先前元素来预测序列的下一个元素。**
 
-在这个正弦波预测的例子中，模型接收的输入$y_{t-1}$实际上是序列中的一个元素，而模型的任务是预测该序列的下一个元素$y_t$。换句话说，给定序列的前$n$个值，模型需要预测第$n+1$个值。这种类型的任务通常称为时间序列预测。
+在这个正弦波预测的例子中，**模型接收的输入$y_{t-1}$实际上是序列中的一个元素，而模型的任务是预测该序列的下一个元素$y_t$。换句话说，给定序列的前$n$个值，模型需要预测第$n+1$个值。**这种类型的任务通常称为时间序列预测。
 
 **生成数据集**
 
 首先，我们生成正弦波数据集。
+
+![image-20240319084624017](./assets/image-20240319084624017.png)
 
 ```python
 import numpy as np
 import matplotlib.pyplot as plt
 import torch
 import torch.nn as nn
-from torch.autograd import Variable
 
 # 生成正弦波数据集
 torch.manual_seed(44)  # 设置随机种子，保证每次运行结果一致
@@ -5765,6 +5924,13 @@ print("shape of X:",X.shape)
 print("X",X[:20])
 print("shape of Y:",Y.shape)
 print("Y",Y[:20])
+
+# 可视化部分数据集
+plt.figure(figsize=(10,5))
+plt.plot(x[:100], y[:100], label='Sin wave')
+plt.title('Sin wave data')
+plt.legend()
+plt.show()
 ```
 
 ![image-20240314103515948](.\assets\image-20240314103515948.png)
@@ -5780,10 +5946,6 @@ print("Y",Y[:20])
 - `Y`与`X`类似，也是从`y`中创建的，但包含的是**从第二个元素到最后一个元素。**因此，`Y`的形状也是`(999, 1, 1)`，与`X`相同。
 - `X`和`Y`的值被微微错开（即`X`是从`y`的第一个元素到倒数第二个元素，而`Y`是从`y`的第二个元素到最后一个元素），是为了**创建一个预测任务：给定当前的`sin`值（通过`X`表示），预测下一个时间点的`sin`值（通过`Y`表示）**。这种设置模仿了许多实际场景中的序列预测任务，例如，根据过去的天气数据预测未来的天气，或者根据过去的股价预测未来的股价。
 - 对于时刻`t`,**`X[t]=sin(t)`而`Y[t]=sin(t+1)`。**
-- 调整张量的形状成三维是因为RNN网络的输入要求。在PyTorch中，RNN期望的输入是一个三维张量，其形状通常是`(batch_size, seq_len, features)`：
-  - **`batch_size`是每次训练时输入的数据批量大小。**
-  - **`seq_len`是序列的长度，即每个输入序列中的元素数量。**
-  - **`features`是每个序列元素的特征数量。**
 - `plot`填入x和y两组数据，绘制了`x`和`y`数组的前100个元素组成的曲线。
 - `plt.legend()`：会在图表上显示一个**图例**，类似于下面这样。
   ![image-20240314141829480](.\assets\image-20240314141829480.png)
@@ -5792,7 +5954,7 @@ print("Y",Y[:20])
 
 我们已经生成了正弦波数据集并可视化了其一部分。接下来，我们将定义一个简单的RNN模型来预测这个正弦波的未来值。
 
-我们的RNN模型将非常简单，包括一个RNN层，后面跟着一个线性层来输出预测值。我们将使用PyTorch的`nn.RNN`类来创建这个RNN层，然后添加一个线性层进行输出值的转换。
+我们的RNN模型将非常简单，包括**一个RNN层，后面跟着一个线性层**来输出预测值。我们将使用PyTorch的`nn.RNN`类来创建这个RNN层，然后添加一个线性层进行输出值的转换。
 
 让我们定义这个模型。
 
@@ -5823,6 +5985,8 @@ model = SimpleRNN(input_size=input_size, hidden_size=hidden_size, output_size=ou
 
 通过调用`super().__init__()`，`SimpleRNN`类的构造器可以**调用其父类`nn.Module`的构造器**，这是初始化父类对象的标准方式。
 
+![image-20240318232638103](./assets/image-20240318232638103.png)
+
 - `input_size`：每个时间步的输入特征数量。在这个例子中，**每个时间步的输入是正弦波的一个值，因此`input_size=1`。**
 - `hidden_size`：RNN隐藏层的特征数量。这决定了隐藏状态的维度，也就是RNN内部每个时间步计算得到的向量的大小。
   - **没有`batch_first=True`：此时RNN期望的输入是一个三维张量，其形状为`(seq_len, batch, input_size)`，恰好对应输入的张量形状`[999,1,1]`。因为只有一个曲线需要预测，批次数为1。在每一个时间点上，只有一个输入，也就是$x_t$`=sin(t)`，因此`input_size=1`。总共有999个时间点，因此`seq_len=999`。**
@@ -5849,8 +6013,6 @@ model = SimpleRNN(input_size=input_size, hidden_size=hidden_size, output_size=ou
 
 我们已经定义了一个简单的RNN模型，它由一个RNN层和一个线性层组成。接下来，我们将训练这个模型来预测正弦波的未来值。
 
-![image-20240318232638103](./assets/image-20240318232638103.png)
-
 **训练模型**
 
 为了训练模型，我们将使用均方误差（MSE）作为损失函数，使用Adam作为优化器。我们将通过一定数量的迭代（或称为"epoch"）来训练模型，每次迭代都会遍历整个数据集。
@@ -5863,7 +6025,7 @@ learning_rate = 0.01 # 学习率
 epochs = 150 # 训练轮数
 
 # 损失函数和优化器
-criterion = nn.MSELoss() # 均方误差，计算方法：(y_true - y_pred) ** 2 求和取平均
+criterion = nn.MSELoss() # 均方误差损失，计算方法：(y_true - y_pred) ** 2 求和取平均
 optimizer = torch.optim.Adam(model.parameters(), lr=learning_rate) # Adam优化器
 
 # 训练模型
@@ -5915,8 +6077,8 @@ with torch.no_grad():
 
 # 绘制实际值和预测值的对比图
 plt.figure(figsize=(10,5))# 设置画布大小
-plt.plot(x_test[:-1], y_test[1:], label='Actual Sin wave', color='blue')# 绘制实际值
-plt.plot(x_test[:-1], predictions_test, label='Predicted Sin wave', color='red', linestyle='--')# 绘制预测值
+plt.plot(x_test[1:], y_test[1:], label='Actual Sin wave', color='blue')# 绘制实际值
+plt.plot(x_test[1:], predictions_test, label='Predicted Sin wave', color='red', linestyle='--')# 绘制预测值
 plt.title('Sin wave prediction on test data (x in [100, 110])')# 设置图标题
 plt.xlabel('x')# 设置x轴标签
 plt.ylabel('sin(x)')# 设置y轴标签
@@ -5991,32 +6153,104 @@ pip install xmnlp
 
 
 
-#### 五个性能指标
+#### 性能指标
 
-假设我们有一个机器学习模型，用于判断电子邮件是否为垃圾邮件（1表示垃圾邮件，0表示非垃圾邮件）。在一个测试集上，我们有以下结果：
+![image-20240321113008094](./assets/image-20240321113008094.png)
 
-- 真正例（TP）: 90（模型预测为垃圾邮件，且实际为垃圾邮件的邮件数量）
-- 假正例（FP）: 10（模型预测为垃圾邮件，但实际非垃圾邮件的邮件数量）
-- 真负例（TN）: 80（模型预测为非垃圾邮件，且实际为非垃圾邮件的邮件数量）
-- 假负例（FN）: 20（模型预测为非垃圾邮件，但实际为垃圾邮件的邮件数量）
+**问题：**
 
-基于这些信息，我们可以计算上述提到的五个性能指标：
+- 习惯上，我们把标签为1叫做正（Positive），标签0叫做负（Negative）。
 
-1. **精确率(Precision)**: 表示预测为垃圾邮件中，实际为垃圾邮件的比例。
-$$Precision = \frac{TP}{TP + FP} = \frac{90}{90 + 10} = 0.9$$
+- 假设有20个样本，预测标签为1且实际标签为1的样本（TP，True Positives）有8个，预测标签为1且实际标签为0的样本（FP，False Positives）有2个，预测标签为0且实际标签为1的样本（FN，False Negatives）有3个，预测标签为0且实际标签为0（TN，True Negatives）的样本有7个。【**命名原理：预测的标签决定是Positives（1）还是Negatives（0），用预测和实际是否相符决定叫真还是假**】
+- 计算出标签1上的精确率，召回率，F1，然后计算出标签0上的精确率，召回率，F1，求出最终的准确率。
 
-2. **召回率(Recall)**: 表示实际为垃圾邮件中，被正确预测为垃圾邮件的比例。
-$$Recall = \frac{TP}{TP + FN} = \frac{90}{90 + 20} = 0.818$$
+**答：**
 
-3. **F1分数**: 是精确率和召回率的调和平均值，用于衡量二者的平衡性。
-$$F1 = 2 \cdot \frac{Precision \cdot Recall}{Precision + Recall} = 2 \cdot \frac{0.9 \cdot 0.818}{0.9 + 0.818} \approx 0.857$$
+```py
+# 定义给定的值
+TP = 8  # 预测标签为1且实际标签为1
+FP = 2  # 预测标签为1且实际标签为0
+FN = 3  # 预测标签为0且实际标签为1
+TN = 7  # 预测标签为0且实际标签为0
 
-4. **准确率(Accuracy)**: 表示所有预测正确（无论正负）的邮件占总邮件的比例。
-$$Accuracy = \frac{TP + TN}{TP + TN + FP + FN} = \frac{90 + 80}{90 + 80 + 10 + 20} = 0.85$$
+# 计算标签1上的精确率(Precision)，召回率(Recall)和F1分数
+precision_1 = TP / (TP + FP)
+recall_1 = TP / (TP + FN)
+F1_1 = 2 * (precision_1 * recall_1) / (precision_1 + recall_1)
 
-5. **AUC**: 由于AUC是基于ROC曲线计算的，这里无法直接从这些数据计算AUC值。但是AUC值将反映模型在不同阈值下区分垃圾邮件和非垃圾邮件的能力。理论上，如果模型很好地区分了垃圾邮件和非垃圾邮件，AUC值应接近于1；如果模型仅做随机猜测，AUC值应接近于0.5。
+# 计算标签0上的精确率，召回率和F1分数
+precision_0 = TN / (TN + FN)
+recall_0 = TN / (TN + FP)
+F1_0 = 2 * (precision_0 * recall_0) / (precision_0 + recall_0)
 
-这个例子说明了如何根据模型的预测结果和实际情况，计算出不同的性能评估指标，以便从多个角度评价模型的性能。
+# 计算准确率
+accuracy = (TP + TN) / (TP + TN + FP + FN)
+
+print(
+{
+    "precision_1": precision_1,
+    "recall_1": recall_1,
+    "F1_1": F1_1,
+    "precision_0": precision_0,
+    "recall_0": recall_0,
+    "F1_0": F1_0,
+    "accuracy": accuracy
+}
+)
+```
+
+基于给定的样本信息，我们得到以下结果：
+
+对于标签1（正类）：
+- 精确率（Precision）为0.8，
+- 召回率（Recall）为0.727，
+- F1分数为0.762。
+
+对于标签0（负类）：
+- 精确率为0.7，
+- 召回率为0.778，
+- F1分数为0.737。
+
+整体的准确率（Accuracy）为0.75。
+
+**解释**：
+
+上述公式用于计算机器学习模型在二分类问题中的性能指标，包括精确率（Precision），召回率（Recall），F1分数（F1 Score），以及准确率（Accuracy）。这些指标基于四个基本概念：真正类（TP），假正类（FP），假负类（FN），真负类（TN）。
+
+**真正类（True Positives, TP）**
+指的是模型正确预测为正类的样本数量。
+
+**假正类（False Positives, FP）**
+指的是模型错误预测为正类的样本数量，但实际上它们属于负类。
+
+**假负类（False Negatives, FN）**
+指的是模型错误预测为负类的样本数量，但实际上它们属于正类。
+
+**真负类（True Negatives, TN）**
+指的是模型正确预测为负类的样本数量。
+
+基于这些定义，我们可以解释上述的7个公式：
+
+**标签1上的精确率（Precision）**
+$$ \text{Precision} = \frac{TP}{TP + FP} $$
+**表示在所有预测为正类的样本中，实际为正类的比例（对了多少）。精确率高表示模型在预测为正类的时候，确实性较高。**
+
+**标签1上的召回率（Recall）**
+$$ \text{Recall} = \frac{TP}{TP + FN} $$
+**表示在所有实际为正类的样本中，被模型正确预测出来的比例（对了多少）。召回率高表示模型能够很好地捕捉到正类样本。**
+
+**标签1上的F1分数**
+$$ \text{F1} = 2 \cdot \frac{\text{Precision} \cdot \text{Recall}}{\text{Precision} + \text{Recall}} $$
+**F1分数是精确率和召回率的调和平均值，用于平衡精确率和召回率。当模型在精确率和召回率之间存在差异时，F1分数是一个有用的度量。**
+
+标签0上的精确率、召回率和F1分数
+对于负类（标签0），这些指标的计算方式与正类（标签1）相同，但是基于TN和FN的计算，分别关注于负类的预测性能。
+
+**准确率（Accuracy）**
+$$ \text{Accuracy} = \frac{TP + TN}{TP + TN + FP + FN} $$
+**准确率表示模型正确预测（无论正类或负类）的样本比例，是最直观的性能衡量指标。**
+
+
 
 
 
